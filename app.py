@@ -1,97 +1,36 @@
 import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import re
-import sympy
+from math_plotter import handle_math_plotting
 
-# 1. 创建用户界面
-st.title("AI function plotting")
-st.write("Use natural language to decribe the function tou want to plot: like 'draw y = x**2'")
+# 我们稍后会从 physics_engine 导入函数
+from physics_engine import handle_physics_simulation
 
-# 2. Get user's input
-user_input = st.text_input("Enter your function description:")
+st.title("AI Assistant for Math and Physics")
+st.write("This is a simple math and physics assistant.")
+user_input = st.text_input("Enter your math or physics expression:")
 
 if user_input:
-    st.write(f"You entered: {user_input}")
-    # Parse the input
-    try:
-        #默认范围
-        x_min, x_max = -10, 10
+    # 意图识别模块(V1.0基于关键词）
+    physics_keywords = ["kinetic energy", "potential energy", "force", "acceleration", "velocity", "mass", "distance", "time", "free falling", "projectile"]
+    intent = "plot_function"
 
-        #定义正则表达式来找“从...到..."
-        # \s* -> 匹配任意空格
-        # (.*?)    -> 匹配任意字符 (非贪婪模式)，并将其捕获为一组
-        range_pattern = re.compile(r"(?:sth|from)\s*(.*?)\s*(?:sth|to)\s*(.*)", re.IGNORECASE)
-         #在用户输入中搜索范围
-        match = range_pattern.search(user_input)
-        expression_part = user_input# ?
+    for keyword in physics_keywords:
+        if keyword in user_input:
+            intent = "simulate_physics"
+            break #只要找到一个物理关键词，就确定意图便能够跳出循环
 
-        #如果找到了匹配的范围
-        if match:
-            # group(1)是第一个括号里的内容，group(2)是第二个
-            x_min_str = match.group(1)
-            x_max_str = match.group(2)
+    st.write(f"Detected intent: {intent}")
 
-            # 使用sympy来解析数学表达式
-            x_min = sympy.sympify(x_min_str).evalf()
-            x_max = sympy.sympify(x_max_str).evalf()
+    #任务发放
+    if intent == "simulate_physics":
+        st.info("Task has been assigned to the physics engine...")
+        fig, error = handle_physics_simulation(user_input)
+    else: #默认处理数学函数
+        st.info("Task has been assigned to the math plotting engine...")
+        fig, error = handle_math_plotting(user_input)
 
-            st.success(f"Range set to {x_min} to {x_max}")
-
-            expression_part = range_pattern.sub('', user_input)
-        else:
-            expression_part = user_input
-            st.info("Range not specified, using default range (-10, 10)")
-
-        #使用正则表达式分割多个函数表达式
-        split_expressions = re.split(r'\s*and\s*|\s*&\s*|,\s*', expression_part)
-
-        #清理每个分割出的表达式
-        clean_expressions = []
-        for expr in split_expressions:
-            if 'y =' in expr:
-                clean_expr = expr.split('y =')[-1].strip()
-            elif 'y=' in expr:
-                clean_expr = expr.split('y=')[-1].strip()
-            else:
-                clean_expr = expr.strip()
-
-            if clean_expr:
-                clean_expressions.append(clean_expr)
-
-        if not clean_expressions:
-            st.warning("No valid expressions found in the input")
-        else:
-            st.success(f"Found {len(clean_expressions)} valid expressions")
-            #将解析结果用列表方式给用户
-            st.markdown("".join([f"- `y = {expr}`\n" for expr in clean_expressions])) #???
-
-            #使用sympy核心
-            #定义符号
-            x_sym = sympy.symbols('x')
-            x = np.linspace(float(x_min), float(x_max), 100)
-
-            fig, ax = plt.subplots()
-
-            #循环绘制每一个函数
-            for expression_str in clean_expressions:
-                expression = sympy.sympify(expression_str)
-                f = sympy.lambdify(x_sym, expression, 'numpy')
-                y = f(x)
-                y[np.isinf(y)] = np.nan  #处理无穷大
-                ax.plot(x, y, label=f'y = {expression_str}') #绘制曲线+标签
-
-            #设置图像显示并显示
-            ax.set_title("Function Plot")
-            ax.set_xlabel("x")
-            ax.set_ylabel("y")
-            ax.grid(True)
-            ax.axhline(0, color='black', linewidth=0.5)
-            ax.axvline(0, color='black', linewidth=0.5)
-            ax.legend()
-
-            st.pyplot(fig)
-            st.write("Plotting completed successfully!")
-
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+    # show result
+    if fig:
+        st.pyplot(fig)
+        st.success("Plotting completed successfully.")
+    elif error:
+        st.error(error)
