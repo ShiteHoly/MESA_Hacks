@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+import sympy
 
 # 1. 创建用户界面
 st.title("AI function plotting")
@@ -22,6 +23,7 @@ if user_input:
         # (.*?)    -> 匹配任意字符 (非贪婪模式)，并将其捕获为一组
         range_pattern = re.compile(r"from\s*(.*?)\s*to\s*(.*)")
         match = range_pattern.search(user_input)
+        expression_part = user_input# ?
 
         #如果找到了匹配的范围
         if match:
@@ -29,10 +31,9 @@ if user_input:
             x_min_str = match.group(1)
             x_max_str = match.group(2)
 
-            # 为了能处理像 'pi' 或 '-2*pi' 这样的输入, 我们用eval来计算范围值
-            # 注意：这里我们信任用户输入的范围是安全的数学表达式
-            x_min = eval(x_min_str, {'np': np, 'numpy': np, 'pi': np.pi})
-            x_max = eval(x_max_str, {'np': np, 'numpy': np, 'pi': np.pi})
+            # 使用sympy来解析数学表达式
+            x_min = sympy.sympify(x_min_str).evalf()
+            x_max = sympy.sympify(x_max_str).evalf()
 
             st.success(f"Range set to {x_min} to {x_max}")
 
@@ -48,9 +49,20 @@ if user_input:
 
         st.success(f"Successfully parsed expression part: y = {expression_part}")
 
-        x = np.linspace(float(x_min), float(x_max), 400)
-        y = eval(expression_string, {'np': np, 'numpy': np, 'x':x, 'pi': np.pi})
+        #使用sympy核心
+        #定义符号
+        x_sym = sympy.symbols('x')
 
+        #将字符串转成sympy表达式 （sympy默认能理解cos,sin,pi,exp等等）
+        expression = sympy.sympify(expression_string)
+
+        #创建一个用于快速数值计算的函数
+        #numpy参数能让它处理numpy数组
+        f = sympy.lambdify(x_sym, expression, 'numpy')
+
+        #生成x,y轴数据
+        x = np.linspace(float(x_min), float(x_max), 100)
+        y = f(x)
         #画图
         fig, ax = plt.subplots()
         ax.plot(x, y)
