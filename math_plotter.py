@@ -10,7 +10,7 @@ def handle_math_plotting(user_input):
 
         #定义正则表达式来找“从...到..."
         # \s* -> 匹配任意空格
-        # (.*?)    -> 匹配任意字符 (非贪婪模式)，并将其捕获为一组
+        # (.*?)    -> 匹配任意字符，并将其捕获为一组
         range_pattern = re.compile(r"(?:从|from)\s*(.*?)\s*(?:到|to)\s*(.*)", re.IGNORECASE)
          #在用户输入中搜索范围
         match = range_pattern.search(user_input)
@@ -45,32 +45,33 @@ def handle_math_plotting(user_input):
 
             if clean_expr:
                 clean_expressions.append(clean_expr)
+        if not clean_expressions:
+            return None, "Sorry, I cannot handle this request yet."
 
-        else:
-            #使用sympy核心
-            #定义符号
-            x_sym = sympy.symbols('x')
-            x = np.linspace(float(x_min), float(x_max), 400)
+        #使用sympy核心
+        #定义符号
+        x_sym = sympy.symbols('x')
+        x = np.linspace(float(x_min), float(x_max), 400)
 
-            fig, ax = plt.subplots()
+        fig, ax = plt.subplots()
 
-            #循环绘制每一个函数
-            for expression_str in clean_expressions:
-                expression = sympy.sympify(expression_str)
-                f = sympy.lambdify(x_sym, expression, 'numpy')
-                y = f(x)
-                y[np.isinf(y)] = np.nan  #处理无穷大
-                ax.plot(x, y, label=f'y = {expression_str}') #绘制曲线+标签
+        #循环绘制每一个函数
+        for expression_str in clean_expressions:
+            expression = sympy.sympify(expression_str)
+            f = sympy.lambdify(x_sym, expression, 'numpy')
+            y = f(x)
+            y[np.isinf(y)] = np.nan  #处理无穷大
+            ax.plot(x, y, label=f'y = {expression_str}') #绘制曲线+标签
 
-            #设置图像显示并显示
-            ax.set_title("Function Plot")
-            ax.set_xlabel("x")
-            ax.set_ylabel("y")
-            ax.grid(True)
-            ax.axhline(0, color='black', linewidth=0.5)
-            ax.axvline(0, color='black', linewidth=0.5)
-            ax.legend()
+        #设置图像显示并显示            ax.set_title("Function Plot")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.grid(True)
+        ax.axhline(0, color='black', linewidth=0.5)
+        ax.axvline(0, color='black', linewidth=0.5)
+        ax.legend()
 
-            return fig, None
+        return fig, None
+
     except Exception as e:
         return None, str(e)

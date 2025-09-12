@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Planck.js Simulation</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; }
+        canvas { display: block; background-color: #d3e6ff; }
+    </style>
+</head>
+<body>
+    <canvas id="simulation-canvas"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/planck@latest/dist/planck.min.js"></script>
+    <script>
+        // 这个特殊标记 %%SCENE_DATA%% 将会被Python替换成真实的JSON数据
+        const sceneData = %%SCENE_DATA%%;
+
+        const pl = planck, Vec2 = pl.Vec2;
+        const canvas = document.getElementById('simulation-canvas');
+        const width = 800, height = 600;
+        canvas.width = width;
+        canvas.height = height;
+
+        // 根据世界大小调整视图
+        const worldScale = 10;
+        const viewbox = { min: { x: 0, y: 0 }, max: { x: width / worldScale, y: height / worldScale } };
+
+        const world = new pl.World(sceneData.world.gravity);
+
+        // 创建物体
+        sceneData.objects.forEach(obj => {
+            let body;
+            if (obj.type === 'static') {
+                body = world.createBody({type: 'static', position: obj.position});
+            } else if (obj.type === 'dynamic') {
+                body = world.createDynamicBody({position: obj.position});
+            }
+
+            if (obj.shape === 'box') {
+                body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2));
+            } else if (obj.shape === 'circle') {
+                body.createFixture(pl.Circle(obj.radius), {density: 1.0, friction: 0.3, restitution: 0.4});
+            }
+        });
+
+        const ctx = canvas.getContext('2d');
+
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            ctx.scale(worldScale, worldScale);
+            // 翻转Y轴以匹配物理坐标系
+            ctx.translate(0, viewbox.max.y);
+            ctx.scale(1, -1);
+
+            for (let body = world.getBodyList(); body; body = body.getNext()) {
+                for (let fixture = body.getFixtureList(); fixture; fixture = fixture.getNext()) {
+                    const shape = fixture.getShape();
+                    const pos = body.getPosition();
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(body.getAngle());
+
+                    if (shape.getType() === 'circle') {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, shape.m_radius, 0, 2 * Math.PI);
+                        ctx.fillStyle = body.isDynamic() ? '#ff6347' : '#808080';
+                        ctx.fill();
+                    } else if (shape.getType() === 'polygon') {
+                        const vertices = shape.m_vertices;
+                        ctx.beginPath();
+                        ctx.moveTo(vertices[0].x, vertices[0].y);
+                        for (let i = 1; i < vertices.length; i++) {
+                            ctx.lineTo(vertices[i].x, vertices[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = '#808080';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+            ctx.restore();
+        }
+
+        function step() {
+            world.step(1 / 60);
+            render();
+            requestAnimationFrame(step);
+        }
+
+        step();
+    </script>
+</body>
+</html>
