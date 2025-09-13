@@ -3,7 +3,7 @@ Physics Scene Compiler for Planck.js (V2)
 
 This module provides a class `PhysicsSceneCompiler` that acts as a translator,
 converting a high-level, generic scene description from an MCP (Machine Control Protocol)
-source into the detailed, low-level JSON format required by the 'simulation.html' frontend.
+source into the detailed, low-level JSON format required by a frontend.
 
 This version features comprehensive docstrings for all methods and supports a complete
 set of initial state properties as defined by the Planck.js documentation.
