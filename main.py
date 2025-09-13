@@ -219,8 +219,9 @@ class PhysicsSceneCompiler:
         except Exception as e:
             return None, f"An unexpected error occurred in the scene compiler: {str(e)}"
 
-# --- 使用示例 ---
+
 if __name__ == '__main__':
+    # 假设 PhysicsSceneCompiler 类已经在此文件前面定义好了
     compiler = PhysicsSceneCompiler()
 
     # 示例: 一个包含多种新增物理属性的复杂场景
@@ -232,26 +233,27 @@ if __name__ == '__main__':
                 "type": "dynamic", "shape": "box", "mass": 1,
                 "size": {"width": 0.5, "height": 0.5},
                 "position": {"x": 10, "y": 10},
-                "linearVelocity": {"x": 100, "y": 0}, # 初始速度
-                "bullet": True, # 高速物体
-                "gravityScale": 0.1 # 受重力影响较小
+                "linearVelocity": {"x": 100, "y": 0},  # 初始速度
+                "bullet": True,  # 高速物体
+                "gravityScale": 0.1  # 受重力影响较小
             },
             {
                 "id": "no_spin_box",
                 "type": "dynamic", "shape": "box", "mass": 50,
                 "size": {"width": 5, "height": 5},
                 "position": {"x": 40, "y": 20},
-                "fixedRotation": True, # 固定旋转
+                "fixedRotation": True,  # 固定旋转
                 "friction": 0.1,
-                "restitution": 0.8 # 高弹性
+                "restitution": 0.8  # 高弹性
             },
             {
                 "id": "trigger_zone",
                 "type": "static", "shape": "circle", "radius": 5,
                 "position": {"x": 60, "y": 15},
-                "isSensor": True # 传感器，不产生碰撞力
+                "isSensor": True  # 传感器，不产生碰撞力
             },
-            {"id": "ground", "type": "static", "shape": "box", "size": {"width": 80, "height": 2}, "position": {"x": 40, "y": 1}}
+            {"id": "ground", "type": "static", "shape": "box", "size": {"width": 80, "height": 2},
+             "position": {"x": 40, "y": 1}}
         ],
         "joints": []
     }
@@ -262,5 +264,20 @@ if __name__ == '__main__':
         print(f"编译失败: {error}")
     else:
         import json
+
         print("编译成功! 生成的Planck.js场景数据:")
-        print(json.dumps(scene_data, indent=2))
+
+        # 将数据格式化为带缩进的JSON字符串
+        json_output = json.dumps(scene_data, indent=2)
+
+        # 仍然在控制台打印输出
+        print(json_output)
+
+        # --- 新增的文件保存逻辑 ---
+        output_filename = "scene_output.json"
+        try:
+            with open(output_filename, 'w', encoding='utf-8') as f:
+                f.write(json_output)
+            print(f"\n[成功] 输出结果已成功保存到当前路径下的文件: {output_filename}")
+        except Exception as e:
+            print(f"\n[错误] 保存文件时发生错误: {e}")
