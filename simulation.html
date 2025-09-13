@@ -5,61 +5,139 @@
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; }
         canvas { display: block; background-color: #d3e6ff; }
+        #info-panel {
+            position: absolute; top: 10px; right: 10px; padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5); color: white;
+            font-family: monospace; border-radius: 5px; font-size: 14px;
+        }
+        #reset-button {
+            position: absolute; top: 10px; left: 10px; padding: 8px 12px;
+            font-size: 14px; cursor: pointer;
+        }
+        #params-panel {
+            position: absolute; top: 50px; left: 10px; padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5); color: white;
+            font-family: monospace; border-radius: 5px; font-size: 14px;
+        }
     </style>
 </head>
 <body>
+    <div id="info-panel"></div>
+    <button id="reset-button">Repeat Simulation</button>
+    <div id="params-panel"></div>
+
     <canvas id="simulation-canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/planck@latest/dist/planck.min.js"></script>
     <script>
-        // 这个特殊标记 %%SCENE_DATA%% 将会被Python替换成真实的JSON数据
-        const sceneData = %%SCENE_DATA%%;
-
+        const initialSceneData = %%SCENE_DATA%%;
         const pl = planck, Vec2 = pl.Vec2;
         const canvas = document.getElementById('simulation-canvas');
+        const infoPanel = document.getElementById('info-panel');
+        const resetButton = document.getElementById('reset-button');
+        const paramsPanel = document.getElementById('params-panel');
         const width = 800, height = 600;
         canvas.width = width;
         canvas.height = height;
-
-        // 根据世界大小调整视图
         const worldScale = 10;
-        const viewbox = { min: { x: 0, y: 0 }, max: { x: width / worldScale, y: height / worldScale } };
+        let world;
+        let mainTrackedBody;
+        let elapsedTime = 0;
+        const timeStep = 1 / 60;
+        let netForce = Vec2(0, 0);
+        let previousVelocity = Vec2(0, 0);
 
-        const world = new pl.World(sceneData.world.gravity);
+        function setupSimulation(sceneData) {
+            world = new pl.World(sceneData.world.gravity);
+            mainTrackedBody = null;
+            elapsedTime = 0;
+            netForce = Vec2(0, 0);
+            previousVelocity = Vec2(0, 0);
+            sceneData.objects.forEach(obj => {
+                let body;
+                if (obj.type === 'static') {
+                    body = world.createBody({type: 'static', position: obj.position});
+                } else if (obj.type === 'dynamic') {
+                    body = world.createDynamicBody({position: obj.position});
+                    mainTrackedBody = body;
+                    if (obj.initial_velocity) {
+                        previousVelocity = Vec2(obj.initial_velocity.x, obj.initial_velocity.y);
+                    }
+                }
+                body.userData = { id: obj.id || 'unknown' };
+                let fixture;
+                if (obj.shape === 'box') {
+                    fixture = body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2));
+                } else if (obj.shape === 'circle') {
+                    fixture = body.createFixture(pl.Circle(obj.radius), {density: 1.0, friction: 0.3, restitution: 0.4});
+                }
+                if (obj.initial_velocity) {
+                    body.setLinearVelocity(Vec2(obj.initial_velocity.x, obj.initial_velocity.y));
+                }
+            });
+            updateParamsPanel();
+        }
 
-        // 创建物体
-        sceneData.objects.forEach(obj => {
-            let body;
-            if (obj.type === 'static') {
-                body = world.createBody({type: 'static', position: obj.position});
-            } else if (obj.type === 'dynamic') {
-                body = world.createDynamicBody({position: obj.position});
+        function updateParamsPanel() {
+            if (!world || !mainTrackedBody) {
+                paramsPanel.innerHTML = '';
+                return;
             }
+            const id = mainTrackedBody.userData.id;
+            const mass = mainTrackedBody.getMass();
+            const ballFixture = mainTrackedBody.getFixtureList();
+            const friction = ballFixture ? ballFixture.getFriction() : 'N/A';
+            const inertia = mainTrackedBody.getInertia();
+            paramsPanel.innerHTML = `
+                --- World Params ---<br>
+                Gravity: (${world.getGravity().x.toFixed(2)}, ${world.getGravity().y.toFixed(2)})<br>
+                <br>
+                --- Object ${id} Params ---<br>
+                Mass: ${mass.toFixed(2)} kg<br>
+                Friction Coeff: ${friction}<br>
+                Inertia: ${inertia.toFixed(4)}
+            `;
+        }
 
-            if (obj.shape === 'box') {
-                body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2));
-            } else if (obj.shape === 'circle') {
-                body.createFixture(pl.Circle(obj.radius), {density: 1.0, friction: 0.3, restitution: 0.4});
+        function resetSimulation() {
+            for (let b = world.getBodyList(); b; b = b.getNext()) {
+                world.destroyBody(b);
             }
-        });
+            setupSimulation(initialSceneData);
+        }
 
+        resetButton.addEventListener('click', resetSimulation);
         const ctx = canvas.getContext('2d');
+
+        function drawVector(startPos, vector, color, scale = 1.0) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 0.2;
+            const endPos = Vec2.add(startPos, Vec2.mul(vector, scale));
+            ctx.moveTo(startPos.x, startPos.y);
+            ctx.lineTo(endPos.x, endPos.y);
+            const angle = Math.atan2(vector.y, vector.x);
+            ctx.moveTo(endPos.x, endPos.y);
+            ctx.lineTo(endPos.x - 1 * Math.cos(angle - Math.PI / 6), endPos.y - 1 * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(endPos.x, endPos.y);
+            ctx.lineTo(endPos.x - 1 * Math.cos(angle + Math.PI / 6), endPos.y - 1 * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
 
         function render() {
             ctx.clearRect(0, 0, width, height);
             ctx.save();
             ctx.scale(worldScale, worldScale);
-            // 翻转Y轴以匹配物理坐标系
-            ctx.translate(0, viewbox.max.y);
+            const viewboxMaxY = height / worldScale;
+            ctx.translate(0, viewboxMaxY);
             ctx.scale(1, -1);
-
             for (let body = world.getBodyList(); body; body = body.getNext()) {
+                const pos = body.getPosition();
+                const id = body.userData.id;
                 for (let fixture = body.getFixtureList(); fixture; fixture = fixture.getNext()) {
                     const shape = fixture.getShape();
-                    const pos = body.getPosition();
                     ctx.save();
                     ctx.translate(pos.x, pos.y);
                     ctx.rotate(body.getAngle());
-
                     if (shape.getType() === 'circle') {
                         ctx.beginPath();
                         ctx.arc(0, 0, shape.m_radius, 0, 2 * Math.PI);
@@ -78,16 +156,47 @@
                     }
                     ctx.restore();
                 }
+                ctx.save();
+                ctx.translate(pos.x, pos.y);
+                ctx.scale(1, -1);
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 1.5px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(id, 0, 0);
+                ctx.restore();
+            }
+            if (mainTrackedBody) {
+                const bodyPos = mainTrackedBody.getPosition();
+                drawVector(bodyPos, netForce, 'red', 0.1);
             }
             ctx.restore();
         }
 
         function step() {
-            world.step(1 / 60);
+            world.step(timeStep);
+            elapsedTime += timeStep;
+            if (mainTrackedBody) {
+                const currentVelocity = mainTrackedBody.getLinearVelocity();
+                const speed = Math.sqrt(currentVelocity.x ** 2 + currentVelocity.y ** 2);
+                const deltaV = Vec2.sub(currentVelocity, previousVelocity);
+                const acceleration = Vec2.mul(deltaV, 1 / timeStep);
+                const mass = mainTrackedBody.getMass();
+                netForce = Vec2.mul(acceleration, mass);
+                const netForceMagnitude = Math.sqrt(netForce.x ** 2 + netForce.y ** 2);
+                infoPanel.innerHTML = `
+                    Time: ${elapsedTime.toFixed(2)} s<br>
+                    Speed: ${speed.toFixed(2)} m/s<br>
+                    Accel: (${acceleration.x.toFixed(2)}, ${acceleration.y.toFixed(2)})<br>
+                    Net Force: ${netForceMagnitude.toFixed(2)} N
+                `;
+                previousVelocity = currentVelocity.clone();
+            }
             render();
             requestAnimationFrame(step);
         }
 
+        setupSimulation(initialSceneData);
         step();
     </script>
 </body>
