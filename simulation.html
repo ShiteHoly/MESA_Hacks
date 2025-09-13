@@ -29,13 +29,15 @@
     <canvas id="simulation-canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/planck@latest/dist/planck.min.js"></script>
     <script>
+        /// 文件: simulation.html (仅替换 <script> 标签内的内容)
+
         const initialSceneData = %%SCENE_DATA%%;
         const pl = planck, Vec2 = pl.Vec2;
         const canvas = document.getElementById('simulation-canvas');
         const infoPanel = document.getElementById('info-panel');
         const resetButton = document.getElementById('reset-button');
         const paramsPanel = document.getElementById('params-panel');
-        const width = 800, height = 600;
+        const width = 1000, height = 1000;
         canvas.width = width;
         canvas.height = height;
         const worldScale = 10;
@@ -45,6 +47,7 @@
         const timeStep = 1 / 60;
         let netForce = Vec2(0, 0);
         let previousVelocity = Vec2(0, 0);
+        const ctx = canvas.getContext('2d');
 
         function setupSimulation(sceneData) {
             world = new pl.World(sceneData.world.gravity);
@@ -52,28 +55,71 @@
             elapsedTime = 0;
             netForce = Vec2(0, 0);
             previousVelocity = Vec2(0, 0);
+
+            const bodyMap = {};
+
             sceneData.objects.forEach(obj => {
                 let body;
+                const bodyDef = {
+                    type: obj.type,
+                    position: obj.position,
+                    angle: (obj.angle || 0) * Math.PI / 180
+                };
+
                 if (obj.type === 'static') {
-                    body = world.createBody({type: 'static', position: obj.position});
+                    body = world.createBody(bodyDef);
                 } else if (obj.type === 'dynamic') {
-                    body = world.createDynamicBody({position: obj.position});
-                    mainTrackedBody = body;
-                    if (obj.initial_velocity) {
-                        previousVelocity = Vec2(obj.initial_velocity.x, obj.initial_velocity.y);
+                    body = world.createDynamicBody(bodyDef);
+                    if (!mainTrackedBody) {
+                        mainTrackedBody = body;
                     }
                 }
+
                 body.userData = { id: obj.id || 'unknown' };
+                bodyMap[obj.id] = body;
+
                 let fixture;
+                const fixtureDef = {
+                    density: obj.density || 1.0,
+                    friction: obj.friction === 0 ? 0 : obj.friction || 0.3,
+                    restitution: obj.restitution || 0.4
+                };
+
                 if (obj.shape === 'box') {
-                    fixture = body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2));
+                    fixture = body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2), fixtureDef);
                 } else if (obj.shape === 'circle') {
-                    fixture = body.createFixture(pl.Circle(obj.radius), {density: 1.0, friction: 0.3, restitution: 0.4});
+                    fixture = body.createFixture(pl.Circle(obj.radius), fixtureDef);
                 }
+
                 if (obj.initial_velocity) {
                     body.setLinearVelocity(Vec2(obj.initial_velocity.x, obj.initial_velocity.y));
                 }
             });
+
+            if (sceneData.joints) {
+                sceneData.joints.forEach(jointData => {
+                    if (jointData.type === 'PulleyJoint') {
+                        const bodyA = bodyMap[jointData.object_a_id];
+                        const bodyB = bodyMap[jointData.object_b_id];
+
+                        if (bodyA && bodyB) {
+                            const jointDef = {
+                                bodyA: bodyA,
+                                bodyB: bodyB,
+                                groundAnchorA: Vec2(jointData.ground_anchor_a.x, jointData.ground_anchor_a.y),
+                                groundAnchorB: Vec2(jointData.ground_anchor_b.x, jointData.ground_anchor_b.y),
+                                localAnchorA: Vec2(jointData.local_anchor_a.x, jointData.local_anchor_a.y),
+                                localAnchorB: Vec2(jointData.local_anchor_b.x, jointData.local_anchor_b.y),
+                                lengthA: jointData.length_a,
+                                lengthB: jointData.length_b,
+                                ratio: jointData.ratio || 1.0
+                            };
+                            world.createJoint(pl.PulleyJoint(jointDef));
+                        }
+                    }
+                });
+            }
+
             updateParamsPanel();
         }
 
@@ -99,14 +145,15 @@
         }
 
         function resetSimulation() {
-            for (let b = world.getBodyList(); b; b = b.getNext()) {
-                world.destroyBody(b);
+            if (world) {
+                for (let b = world.getBodyList(); b; b = b.getNext()) {
+                    world.destroyBody(b);
+                }
             }
             setupSimulation(initialSceneData);
         }
 
         resetButton.addEventListener('click', resetSimulation);
-        const ctx = canvas.getContext('2d');
 
         function drawVector(startPos, vector, color, scale = 1.0) {
             ctx.beginPath();
@@ -123,74 +170,118 @@
             ctx.stroke();
         }
 
+        // [BUG FIX] - 使用正确的 getAnchorA() API
+        function drawPulleyJoints() {
+            for (let j = world.getJointList(); j; j = j.getNext()) {
+                if (j.getType() === 'pulley-joint') {
+                    const pulley = j;
+                    const groundA = pulley.getGroundAnchorA();
+                    const groundB = pulley.getGroundAnchorB();
+
+                    // 正确的API调用：getAnchorA() 直接返回世界坐标
+                    const anchorA = pulley.getAnchorA();
+                    const anchorB = pulley.getAnchorB();
+
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#333'; // 绳子颜色加深
+                    ctx.lineWidth = 0.15; // 绳子加粗
+
+                    // 绘制绳子A段：从地面锚点A到物体A的世界锚点
+                    ctx.moveTo(groundA.x, groundA.y);
+                    ctx.lineTo(anchorA.x, anchorA.y);
+
+                    // 绘制绳子B段：从地面锚点B到物体B的世界锚点
+                    ctx.moveTo(groundB.x, groundB.y);
+                    ctx.lineTo(anchorB.x, anchorB.y);
+
+                    ctx.stroke();
+                }
+            }
+        }
+
+
         function render() {
             ctx.clearRect(0, 0, width, height);
             ctx.save();
+
             ctx.scale(worldScale, worldScale);
             const viewboxMaxY = height / worldScale;
             ctx.translate(0, viewboxMaxY);
             ctx.scale(1, -1);
-            for (let body = world.getBodyList(); body; body = body.getNext()) {
-                const pos = body.getPosition();
-                const id = body.userData.id;
-                for (let fixture = body.getFixtureList(); fixture; fixture = fixture.getNext()) {
-                    const shape = fixture.getShape();
+
+            if (world) {
+                for (let body = world.getBodyList(); body; body = body.getNext()) {
+                    const pos = body.getPosition();
+                    const id = body.userData.id;
+
                     ctx.save();
                     ctx.translate(pos.x, pos.y);
                     ctx.rotate(body.getAngle());
-                    if (shape.getType() === 'circle') {
-                        ctx.beginPath();
-                        ctx.arc(0, 0, shape.m_radius, 0, 2 * Math.PI);
-                        ctx.fillStyle = body.isDynamic() ? '#ff6347' : '#808080';
-                        ctx.fill();
-                    } else if (shape.getType() === 'polygon') {
-                        const vertices = shape.m_vertices;
-                        ctx.beginPath();
-                        ctx.moveTo(vertices[0].x, vertices[0].y);
-                        for (let i = 1; i < vertices.length; i++) {
-                            ctx.lineTo(vertices[i].x, vertices[i].y);
+
+                    for (let fixture = body.getFixtureList(); fixture; fixture = fixture.getNext()) {
+                        const shape = fixture.getShape();
+                        if (shape.getType() === 'circle') {
+                            ctx.beginPath();
+                            ctx.arc(0, 0, shape.m_radius, 0, 2 * Math.PI);
+                            ctx.fillStyle = body.isDynamic() ? '#ff6347' : '#808080';
+                            ctx.fill();
+                        } else if (shape.getType() === 'polygon') {
+                            const vertices = shape.m_vertices;
+                            ctx.beginPath();
+                            ctx.moveTo(vertices[0].x, vertices[0].y);
+                            for (let i = 1; i < vertices.length; i++) {
+                                ctx.lineTo(vertices[i].x, vertices[i].y);
+                            }
+                            ctx.closePath();
+                            ctx.fillStyle = '#808080';
+                            ctx.fill();
                         }
-                        ctx.closePath();
-                        ctx.fillStyle = '#808080';
-                        ctx.fill();
                     }
                     ctx.restore();
+
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.scale(1, -1);
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 1.5px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(id, 0, 0);
+                    ctx.restore();
                 }
-                ctx.save();
-                ctx.translate(pos.x, pos.y);
-                ctx.scale(1, -1);
-                ctx.fillStyle = 'black';
-                ctx.font = 'bold 1.5px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(id, 0, 0);
-                ctx.restore();
+
+                // 在所有物体绘制之后，绘制绳子
+                drawPulleyJoints();
             }
+
             if (mainTrackedBody) {
                 const bodyPos = mainTrackedBody.getPosition();
                 drawVector(bodyPos, netForce, 'red', 0.1);
             }
+
             ctx.restore();
         }
 
         function step() {
-            world.step(timeStep);
-            elapsedTime += timeStep;
-            if (mainTrackedBody) {
-                const currentVelocity = mainTrackedBody.getLinearVelocity();
-                const speed = Math.sqrt(currentVelocity.x ** 2 + currentVelocity.y ** 2);
-                const deltaV = Vec2.sub(currentVelocity, previousVelocity);
-                const acceleration = Vec2.mul(deltaV, 1 / timeStep);
-                const mass = mainTrackedBody.getMass();
-                netForce = Vec2.mul(acceleration, mass);
-                const netForceMagnitude = Math.sqrt(netForce.x ** 2 + netForce.y ** 2);
-                infoPanel.innerHTML = `
-                    Time: ${elapsedTime.toFixed(2)} s<br>
-                    Speed: ${speed.toFixed(2)} m/s<br>
-                    Accel: (${acceleration.x.toFixed(2)}, ${acceleration.y.toFixed(2)})<br>
-                    Net Force: ${netForceMagnitude.toFixed(2)} N
-                `;
-                previousVelocity = currentVelocity.clone();
+            if (world) {
+                world.step(timeStep);
+                elapsedTime += timeStep;
+                if (mainTrackedBody) {
+                    const currentVelocity = mainTrackedBody.getLinearVelocity();
+                    const speed = Math.sqrt(currentVelocity.x ** 2 + currentVelocity.y ** 2);
+                    const deltaV = Vec2.sub(currentVelocity, previousVelocity);
+                    const acceleration = Vec2.mul(deltaV, 1 / timeStep);
+                    const mass = mainTrackedBody.getMass();
+                    netForce = Vec2.mul(acceleration, mass);
+                    const netForceMagnitude = Math.sqrt(netForce.x ** 2 + netForce.y ** 2);
+                    infoPanel.innerHTML = `
+                        Time: ${elapsedTime.toFixed(2)} s<br>
+                        Speed: ${speed.toFixed(2)} m/s<br>
+                        Accel: (${acceleration.x.toFixed(2)}, ${acceleration.y.toFixed(2)})<br>
+                        Net Force: ${netForceMagnitude.toFixed(2)} N
+                    `;
+                    previousVelocity = currentVelocity.clone();
+                }
             }
             render();
             requestAnimationFrame(step);

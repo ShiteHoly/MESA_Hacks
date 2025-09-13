@@ -9,8 +9,9 @@ user_input = st.text_input("Enter your math or physics expression:")
 
 if user_input:
     # 意图识别模块(V1.0基于关键词）
-    # 增加了 'projectile' 关键词
-    physics_keywords = ["kinetic energy", "potential energy", "force", "acceleration", "velocity", "mass", "distance", "time", "free falling","free fall", "projectile"]
+    physics_keywords = ["kinetic energy", "potential energy", "force", "acceleration",
+                        "velocity", "mass", "distance", "time", "free falling",
+                        "free fall", "projectile", "pulley"]  # <<< 新增 'pulley'
     intent = "plot_function"
 
     for keyword in physics_keywords:
