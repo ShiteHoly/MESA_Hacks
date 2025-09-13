@@ -14,45 +14,50 @@ from typing import Dict, Any, Optional, Tuple
 
 class PhysicsSceneCompiler:
     """
-    一个通用的物理场景编译器，将高阶MCP数据转换为Planck.js可用的低阶JSON格式。
+    A generic physics scene compiler that converts high-level MCP data into the
+    low-level JSON format usable by Planck.js.
 
-    该类的核心职责是“翻译”，而非“理解”。它负责计算前端物理引擎所需的
-    具体参数（例如，根据质量计算密度，根据物体位置计算滑轮绳长），并将用户
-    在MCP中定义的标准物理属性直接传递给输出。
+    The core responsibility of this class is to "translate," not to "understand."
+    It is responsible for calculating specific parameters required by the frontend
+    physics engine (e.g., calculating density from mass, calculating pulley rope
+    length from object positions) and passing through standard physics properties
+    defined by the user in the MCP.
 
     Attributes:
-        G (float): 默认的重力加速度 (m/s^2)。
+        G (float): The default gravitational acceleration (m/s^2).
     """
 
     def __init__(self, gravity_g: float = 9.8):
         """
-        初始化编译器实例。
+        Initializes the compiler instance.
 
         Args:
             gravity_g (float, optional):
-                一个可选参数，用于设定场景的默认Y轴重力。
-                在创建不需要标准重力的场景（如太空模拟）时非常有用。
-                默认为 9.8。
+                An optional parameter to set the default Y-axis gravity for the scene.
+                This is useful when creating scenes that do not require standard
+                gravity, such as space simulations. Defaults to 9.8.
         """
         self.G = gravity_g
 
     def _calculate_density(self, obj: Dict[str, Any]) -> float:
         """
-        根据物体的质量和形状尺寸计算其二维密度。
+        Calculates the 2D density of an object based on its mass and shape dimensions.
 
-        Planck.js 的 Fixture 定义需要 `density` 属性，而用户提供 `mass` 更为直观。
-        此方法负责完成这一转换。
+        The Planck.js Fixture definition requires a `density` property, whereas it is
+        more intuitive for a user to provide `mass`. This method handles this conversion.
 
         Args:
             obj (Dict[str, Any]):
-                一个代表物体的字典，必须包含用于计算面积的键。
-                - 对于 shape='box': 需要 `size: {'width': float, 'height': float}`
-                - 对于 shape='circle': 需要 `radius: float`
-                同时应包含 `mass: float` 键。
+                A dictionary representing the object, which must contain keys for
+                calculating the area.
+                - For shape='box': requires `size: {'width': float, 'height': float}`
+                - For shape='circle': requires `radius: float`
+                It should also contain a `mass: float` key.
 
         Returns:
             float:
-                计算出的密度值 (mass / area)。如果面积为零，则返回1.0以避免除零错误。
+                The calculated density value (mass / area). If the area is zero,
+                it returns 1.0 to avoid a division-by-zero error.
         """
         mass = obj.get("mass", 1.0)
         shape = obj.get("shape")
@@ -64,7 +69,7 @@ class PhysicsSceneCompiler:
             radius = obj.get("radius", 1.0)
             area = np.pi * radius ** 2
         else:
-            area = 1.0  # 如果形状未知或缺失，则使用默认面积
+            area = 1.0  # Use a default area if the shape is unknown or missing
 
         if area == 0:
             return 1.0
@@ -72,45 +77,52 @@ class PhysicsSceneCompiler:
 
     def _prepare_pulley_joint(self, joint_mcp: Dict[str, Any], objects_map: Dict[str, Any]) -> Dict[str, Any]:
         """
-        根据简化的MCP定义，计算Planck.js滑轮关节所需的完整参数。
+        Calculates the complete parameters required for a Planck.js pulley joint
+        based on a simplified MCP definition.
 
-        用户只需提供两个物体的ID和滑轮的锚点位置，此方法会自动计算出初始绳长等
-        前端物理引擎必需的复杂参数。
+        The user only needs to provide the IDs of the two objects and the anchor
+        position of the pulley; this method will automatically calculate complex
+        parameters required by the frontend physics engine, such as the initial
+        rope length.
 
         Args:
             joint_mcp (Dict[str, Any]):
-                代表滑轮关节的MCP输入字典，包含:
-                - `object_a_id` (str): 第一个物体的ID。
-                - `object_b_id` (str): 第二个物体的ID。
-                - `pulley_anchor_pos` (Dict): 滑轮在世界坐标系中的位置，如 `{'x': float, 'y': float}`。
-                - `ratio` (float, optional): 滑轮传动比。
+                The MCP input dictionary representing the pulley joint, containing:
+                - `object_a_id` (str): The ID of the first object.
+                - `object_b_id` (str): The ID of the second object.
+                - `pulley_anchor_pos` (Dict): The position of the pulley in world
+                  coordinates, e.g., `{'x': float, 'y': float}`.
+                - `ratio` (float, optional): The pulley transmission ratio.
 
             objects_map (Dict[str, Any]):
-                一个从对象ID映射到对象数据字典的查找表，用于快速获取物体的位置信息。
+                A lookup map from an object's ID to its data dictionary, used to
+                quickly retrieve object position information.
 
         Returns:
             Dict[str, Any]:
-                一个包含完整滑轮关节参数的字典，可直接被前端使用。包括计算出的
-                `length_a` 和 `length_b`。
+                A dictionary containing the complete pulley joint parameters, ready
+                to be used by the frontend. This includes the calculated `length_a`
+                and `length_b`.
 
         Raises:
-            ValueError: 如果关节定义的 object_a_id 或 object_b_id 在 objects_map 中不存在。
+            ValueError: If the object_a_id or object_b_id defined in the joint
+                        does not exist in the objects_map.
         """
         obj_a_id = joint_mcp["object_a_id"]
         obj_b_id = joint_mcp["object_b_id"]
 
         if obj_a_id not in objects_map or obj_b_id not in objects_map:
-            raise ValueError(f"为滑轮关节引用的对象ID不存在: {obj_a_id} 或 {obj_b_id}")
+            raise ValueError(f"Object ID referenced for PulleyJoint not found: {obj_a_id} or {obj_b_id}")
 
         pos_a = objects_map[obj_a_id]["position"]
         pos_b = objects_map[obj_b_id]["position"]
         pulley_pos = joint_mcp["pulley_anchor_pos"]
 
-        # 根据物体中心到滑轮锚点的距离计算初始绳长
+        # Calculate initial rope lengths based on the distance from object centers to the pulley anchor
         length_a = np.sqrt((pos_a['x'] - pulley_pos['x'])**2 + (pos_a['y'] - pulley_pos['y'])**2)
         length_b = np.sqrt((pos_b['x'] - pulley_pos['x'])**2 + (pos_b['y'] - pulley_pos['y'])**2)
 
-        # 返回前端 simulation.html 所需的完整结构
+        # Return the complete structure required by the frontend simulation.html
         return {
             "type": "PulleyJoint",
             "object_a_id": obj_a_id,
@@ -126,43 +138,47 @@ class PhysicsSceneCompiler:
 
     def compile_scene(self, mcp_data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
-        将一个通用的MCP场景描述编译成一个可直接用于Planck.js的JSON对象。
+        Compiles a generic MCP scene description into a JSON object for Planck.js.
 
-        这是该类的主要公共方法。它接收一个符合MCP格式的字典，该字典描述了场景中
-        所有物体、关节和世界属性。方法会处理需要计算的字段（如密度和绳长），并
-        将所有其他Planck.js原生支持的物理属性直接传递。
+        This is the main public method of the class. It receives a dictionary that
+        conforms to the MCP format, describing all objects, joints, and world
+        properties in the scene. The method handles fields that require calculation
+        (like density and rope length) and passes through all other native
+        Planck.js-supported physics properties directly.
 
         Args:
             mcp_data (Dict[str, Any]):
-                一个遵循MCP格式的字典。其 `objects` 列表中的每个对象字典，除了
-                必须的 `id`, `type`, `shape`, `position` 外，还可以包含以下
-                所有符合 Planck.js BodyDef 和 FixtureDef 的可选属性:
+                A dictionary following the MCP format. Each object dictionary in its
+                `objects` list, in addition to the mandatory `id`, `type`, `shape`,
+                and `position`, can also contain any of the following optional
+                properties that conform to the Planck.js BodyDef and FixtureDef:
 
-                --- Body (运动学) 属性 ---
-                - `angle` (float, optional): 初始角度 (单位: 度)。
-                - `linearVelocity` (Dict, optional): 初始线速度, e.g., `{'x': 5, 'y': -2}`。
-                - `angularVelocity` (float, optional): 初始角速度 (弧度/秒)。
-                - `linearDamping` (float, optional): 线性阻尼。
-                - `angularDamping` (float, optional): 角度阻尼。
-                - `fixedRotation` (bool, optional): 是否固定旋转。
-                - `bullet` (bool, optional): 是否为高速移动的“子弹”类型（用于防止穿透）。
-                - `gravityScale` (float, optional): 重力缩放因子，可用于模拟反重力等效果。
+                --- Body (kinematic) properties ---
+                - `angle` (float, optional): Initial angle (in degrees).
+                - `linearVelocity` (Dict, optional): Initial linear velocity, e.g., `{'x': 5, 'y': -2}`.
+                - `angularVelocity` (float, optional): Initial angular velocity (in radians/sec).
+                - `linearDamping` (float, optional): Linear damping.
+                - `angularDamping` (float, optional): Angular damping.
+                - `fixedRotation` (bool, optional): Whether to fix the rotation.
+                - `bullet` (bool, optional): Whether it's a high-speed "bullet" type (to prevent tunneling).
+                - `gravityScale` (float, optional): Gravity scale factor, for effects like anti-gravity.
 
-                --- Fixture (材质/碰撞) 属性 ---
-                - `mass` (float, optional): 质量（用于自动计算密度）。
-                - `density` (float, optional): 密度（若提供，则优先于质量计算）。
-                - `friction` (float, optional): 摩擦系数。
-                - `restitution` (float, optional): 恢复系数（弹性）。
-                - `isSensor` (bool, optional): 是否为传感器（可检测碰撞但不产生物理响应）。
-                - `filterGroupIndex` (int, optional): 碰撞过滤组。
-                - `filterCategoryBits` (int, optional): 碰撞类别。
-                - `filterMaskBits` (int, optional): 碰撞掩码。
+                --- Fixture (material/collision) properties ---
+                - `mass` (float, optional): Mass (used for automatic density calculation).
+                - `density` (float, optional): Density (if provided, this takes precedence over mass).
+                - `friction` (float, optional): Coefficient of friction.
+                - `restitution` (float, optional): Coefficient of restitution (bounciness).
+                - `isSensor` (bool, optional): Whether it's a sensor (detects collisions but has no physical response).
+                - `filterGroupIndex` (int, optional): Collision filter group.
+                - `filterCategoryBits` (int, optional): Collision category.
+                - `filterMaskBits` (int, optional): Collision mask.
 
         Returns:
             Tuple[Optional[Dict[str, Any]], Optional[str]]:
-                一个元组 `(scene_data, error)`。
-                - 成功时: `scene_data` 是一个字典 `{"planck_scene": {...}}`，可被序列化为JSON。`error` 为 `None`。
-                - 失败时: `scene_data` 为 `None`，`error` 是一个描述错误的字符串。
+                A tuple `(scene_data, error)`.
+                - On success: `scene_data` is a dictionary `{"planck_scene": {...}}` that can be
+                  serialized to JSON. `error` is `None`.
+                - On failure: `scene_data` is `None`, and `error` is a string describing the error.
         """
         try:
             final_scene = {
@@ -174,16 +190,16 @@ class PhysicsSceneCompiler:
             objects_map = {obj['id']: obj for obj in mcp_data.get("objects", [])}
 
             for obj_mcp in mcp_data.get("objects", []):
-                # 复制所有用户提供的属性。这能确保所有Planck.js支持的属性
-                # (如 angularVelocity, fixedRotation 等) 都能被直接传递。
+                # Copy all user-provided properties. This ensures that all Planck.js-supported attributes
+                # (like angularVelocity, fixedRotation, etc.) are passed through directly.
                 planck_obj = obj_mcp.copy()
 
                 if planck_obj.get("type") == "dynamic":
-                    # 仅当密度未被直接指定时，才根据质量计算密度。
+                    # Only calculate density from mass if density is not directly specified.
                     if "mass" in planck_obj and "density" not in planck_obj:
                         planck_obj["density"] = self._calculate_density(planck_obj)
                     elif "density" not in planck_obj:
-                        planck_obj["density"] = 1.0  # 提供一个默认值
+                        planck_obj["density"] = 1.0  # Provide a default value
 
                 final_scene["objects"].append(planck_obj)
 
@@ -193,15 +209,15 @@ class PhysicsSceneCompiler:
                     planck_joint = self._prepare_pulley_joint(joint_mcp, objects_map)
                     final_scene["joints"].append(planck_joint)
                 else:
-                    # 对于其他类型的关节，直接传递
+                    # For other joint types, pass them through directly
                     final_scene["joints"].append(joint_mcp)
 
             return {"planck_scene": final_scene}, None
 
         except (KeyError, ValueError) as e:
-            return None, f"处理MCP数据时出错：无效或缺失的键。详情: {str(e)}"
+            return None, f"Error processing MCP data: Invalid or missing key. Details: {str(e)}"
         except Exception as e:
-            return None, f"场景编译器发生意外错误: {str(e)}"
+            return None, f"An unexpected error occurred in the scene compiler: {str(e)}"
 
 # --- 使用示例 ---
 if __name__ == '__main__':
