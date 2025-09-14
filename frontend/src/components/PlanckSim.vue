@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
 type Vec2 = { x: number; y: number }
 
-// Optional: accept external scene data later via props
-// defineProps<{ sceneData?: any }>()
+// Accept external scene data
+const props = defineProps<{ sceneData?: any }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const infoRef = ref<HTMLDivElement | null>(null)
@@ -21,6 +21,7 @@ let previousVelocity: any = null
 const width = 800
 const height = 600
 const worldScale = 10
+let currentScene: any = null
 
 // Default example scene (ground + ball). Replace with real data as needed.
 const defaultScene = {
@@ -30,6 +31,13 @@ const defaultScene = {
     { id: 'ball_1', shape: 'circle', type: 'dynamic', radius: 1.0, position: { x: 2, y: 12 }, initial_velocity: { x: 5, y: 10 } }
   ],
   joints: []
+}
+
+function stopLoop() {
+  if (rafId) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
 }
 
 function setupSimulation(sceneData: any) {
@@ -44,11 +52,14 @@ function setupSimulation(sceneData: any) {
   canvas.height = height
   const ctx = canvas.getContext('2d')!
 
+  // stop any previous loop before rebuilding
+  stopLoop()
   world = new pl.World(pl.Vec2(sceneData.world.gravity.x, sceneData.world.gravity.y))
   mainTrackedBody = null
   elapsedTime = 0
   netForce = { x: 0, y: 0 }
   previousVelocity = pl.Vec2(0, 0)
+  currentScene = sceneData
 
   const bodyMap: Record<string, any> = {}
 
@@ -67,13 +78,18 @@ function setupSimulation(sceneData: any) {
       if (!mainTrackedBody) mainTrackedBody = body
     } else body = world.createBody(bodyDef)
 
+    if (obj.fixedRotation) body.setFixedRotation(true)
+    if (typeof obj.gravityScale === 'number') body.setGravityScale(obj.gravityScale)
+    if (obj.bullet) body.setBullet(true)
+
     body.userData = { id: obj.id || 'unknown' }
     bodyMap[obj.id] = body
 
     const fixtureDef: any = {
       density: obj.density || 1.0,
       friction: obj.friction === 0 ? 0 : obj.friction || 0.3,
-      restitution: obj.restitution || 0.4
+      restitution: obj.restitution || 0.4,
+      isSensor: !!obj.isSensor
     }
 
     if (obj.shape === 'box') {
@@ -82,9 +98,8 @@ function setupSimulation(sceneData: any) {
       body.createFixture(pl.Circle(obj.radius), fixtureDef)
     }
 
-    if (obj.initial_velocity) {
-      body.setLinearVelocity(pl.Vec2(obj.initial_velocity.x, obj.initial_velocity.y))
-    }
+    const lv = obj.initial_velocity || obj.linearVelocity
+    if (lv) body.setLinearVelocity(pl.Vec2(lv.x, lv.y))
   })
 
   // Joints (Pulley)
@@ -246,16 +261,23 @@ function resetSimulation() {
   for (let b = world.getBodyList(); b; b = b.getNext()) {
     world.destroyBody(b)
   }
-  setupSimulation(defaultScene)
+  setupSimulation(currentScene || defaultScene)
 }
 
 onMounted(() => {
-  setupSimulation(defaultScene)
+  setupSimulation(props.sceneData || defaultScene)
 })
 
 onBeforeUnmount(() => {
   if (rafId) cancelAnimationFrame(rafId)
 })
+
+watch(
+  () => props.sceneData,
+  (val) => {
+    if (val) setupSimulation(val)
+  }
+)
 </script>
 
 <template>
@@ -311,4 +333,3 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 </style>
-
