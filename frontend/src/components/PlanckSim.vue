@@ -31,26 +31,43 @@ const showGrid = ref(true)
 
 const baseWidth = 800
 const baseHeight = 600
+// Map backend's x=0 (screen center) to world x=43
+const X_OFFSET = 43
 const worldScale = 10 // 固定世界比例（px/m），保持物理尺度不变
 let viewWidth = baseWidth  // 当前 CSS 尺寸（随容器变化）
 let viewHeight = baseHeight
 let currentScene: any = null
-
-// Default example scene (ground + ball). Replace with real data as needed.
-const defaultScene = {
-  world: { gravity: { x: 0, y: -9.8 } },
-  objects: [
-    { id: 'ground', shape: 'box', type: 'static', position: { x: 25, y: 1 }, size: { width: 100, height: 1 } },
-    { id: 'ball_1', shape: 'circle', type: 'dynamic', radius: 1.0, position: { x: 2, y: 12 }, initial_velocity: { x: 5, y: 10 } }
-  ],
-  joints: []
-}
 
 function stopLoop() {
   if (rafId) {
     cancelAnimationFrame(rafId)
     rafId = null
   }
+}
+
+function remapSceneX(sceneData: any, dx: number) {
+  const s = JSON.parse(JSON.stringify(sceneData || {}))
+  if (Array.isArray(s.objects)) {
+    s.objects = s.objects.map((o: any) => {
+      const pos = o.position || { x: 0, y: 0 }
+      return { ...o, position: { ...pos, x: (pos.x || 0) + dx } }
+    })
+  }
+  if (Array.isArray(s.joints)) {
+    s.joints = s.joints.map((j: any) => {
+      if (j && j.type === 'PulleyJoint') {
+        const ga = j.ground_anchor_a || { x: 0, y: 0 }
+        const gb = j.ground_anchor_b || { x: 0, y: 0 }
+        return {
+          ...j,
+          ground_anchor_a: { ...ga, x: (ga.x || 0) + dx },
+          ground_anchor_b: { ...gb, x: (gb.x || 0) + dx },
+        }
+      }
+      return j
+    })
+  }
+  return s
 }
 
 function setupSimulation(sceneData: any) {
@@ -71,18 +88,19 @@ function setupSimulation(sceneData: any) {
 
   // stop any previous loop before rebuilding
   stopLoop()
-  world = new pl.World(pl.Vec2(sceneData.world.gravity.x, sceneData.world.gravity.y))
+  const mapped = remapSceneX(sceneData, X_OFFSET)
+  world = new pl.World(pl.Vec2(mapped.world.gravity.x, mapped.world.gravity.y))
   mainTrackedBody = null
   elapsedTime = 0
   netForce = { x: 0, y: 0 }
   previousVelocity = pl.Vec2(0, 0)
-  currentScene = sceneData
+  currentScene = mapped
   resetTelemetry()
 
   const bodyMap: Record<string, any> = {}
 
   // Build bodies
-  sceneData.objects.forEach((obj: any) => {
+  mapped.objects.forEach((obj: any) => {
     const bodyDef: any = {
       type: obj.type,
       position: obj.position,
@@ -125,7 +143,7 @@ function setupSimulation(sceneData: any) {
   })
 
   // Joints (Pulley)
-  ;(sceneData.joints || []).forEach((jointData: any) => {
+  ;(mapped.joints || []).forEach((jointData: any) => {
     if (jointData.type === 'PulleyJoint') {
       const bodyA = bodyMap[jointData.object_a_id]
       const bodyB = bodyMap[jointData.object_b_id]
@@ -357,7 +375,9 @@ function resetSimulation() {
   for (let b = world.getBodyList(); b; b = b.getNext()) {
     world.destroyBody(b)
   }
-  setupSimulation(currentScene || defaultScene)
+  if (currentScene) {
+    setupSimulation(currentScene)
+  }
 }
 
 function applyTuning() {
@@ -395,7 +415,9 @@ function applyResize() {
 onMounted(() => {
   applyResize()
   window.addEventListener('resize', applyResize)
-  setupSimulation(props.sceneData || defaultScene)
+  if (props.sceneData) {
+    setupSimulation(props.sceneData)
+  }
 })
 
 onBeforeUnmount(() => {
