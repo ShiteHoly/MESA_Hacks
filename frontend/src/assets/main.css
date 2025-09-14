@@ -1,0 +1,34 @@
+@import './base.css';
+
+#app {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+/* 移除模板默认的大屏双列与 body 居中，避免干扰应用自定义布局 */
+@media (min-width: 1024px) {
+  body {
+    display: block;
+  }
+  #app {
+    display: block;
+    padding: 0; /* 留白交由页面自身布局控制 */
+  }
+}
