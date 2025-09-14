@@ -9,6 +9,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const scene = ref<any | null>(null)
 const thinking = ref(false)
+const isDark = ref(false)
 
 function delay(ms: number) { return new Promise<void>(resolve => setTimeout(resolve, ms)) }
 
@@ -51,6 +52,27 @@ async function runQuery() {
   loading.value = false
 }
 
+function applyTheme(theme: 'light' | 'dark') {
+  isDark.value = theme === 'dark'
+  document.documentElement.setAttribute('data-theme', theme)
+}
+
+function toggleTheme() {
+  const next = isDark.value ? 'light' : 'dark'
+  localStorage.setItem('theme', next)
+  applyTheme(next)
+}
+
+if (typeof window !== 'undefined') {
+  const saved = (localStorage.getItem('theme') as 'light' | 'dark' | null)
+  if (saved === 'light' || saved === 'dark') {
+    applyTheme(saved)
+  } else {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    applyTheme(prefersDark ? 'dark' : 'light')
+  }
+}
+
 // 基于当前场景计算一些可视化统计
 const stats = computed(() => {
   const s = scene.value
@@ -84,6 +106,7 @@ const stats = computed(() => {
       <div class="toolbar">
         <input v-model="query" class="prompt" type="text" placeholder="输入你的请求..." />
         <button class="run" :disabled="loading" @click="runQuery">{{ loading ? '运行中...' : '运行' }}</button>
+        <button class="theme" @click="toggleTheme">{{ isDark ? '☀️ 亮色' : '🌙 深色' }}</button>
       </div>
 
       <p v-if="error" class="err">{{ error }}</p>
@@ -125,6 +148,7 @@ const stats = computed(() => {
 .prompt { width: 520px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; }
 .run { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
 .run:disabled { opacity: 0.6; cursor: not-allowed; }
+.theme { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-heading); cursor: pointer; }
 .err { color: var(--error); margin: 0 0 12px; }
 
 .viz { background: var(--color-background-soft); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px; }

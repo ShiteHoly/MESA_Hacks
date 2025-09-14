@@ -111,7 +111,11 @@ function setupSimulation(sceneData: any) {
     }
 
     if (obj.shape === 'box') {
-      body.createFixture(pl.Box(obj.size.width / 2, obj.size.height / 2), fixtureDef)
+      const w = (obj.size && obj.size.width) ? obj.size.width : obj.width
+      const h = (obj.size && obj.size.height) ? obj.size.height : obj.height
+      const halfW = (typeof w === 'number' ? w : 1) / 2
+      const halfH = (typeof h === 'number' ? h : 1) / 2
+      body.createFixture(pl.Box(halfW, halfH), fixtureDef)
     } else if (obj.shape === 'circle') {
       body.createFixture(pl.Circle(obj.radius), fixtureDef)
     }
@@ -205,12 +209,15 @@ function setupSimulation(sceneData: any) {
 
     // 背景网格（世界坐标，可开关）
     if (showGrid.value) {
+      const cs = getComputedStyle(document.documentElement)
+      const minorColor = cs.getPropertyValue('--grid-minor').trim() || 'rgba(0,0,0,0.06)'
+      const majorColor = cs.getPropertyValue('--grid-major').trim() || 'rgba(0,0,0,0.12)'
       const vw = viewWidth / worldScale
       const vh = viewHeight / worldScale
       ctx.save()
       ctx.lineWidth = 0.02
       // 次级网格 1m
-      ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+      ctx.strokeStyle = minorColor
       for (let x = 0; x <= vw; x += 1) {
         ctx.beginPath()
         ctx.moveTo(x, 0)
@@ -224,7 +231,7 @@ function setupSimulation(sceneData: any) {
         ctx.stroke()
       }
       // 主网格 5m
-      ctx.strokeStyle = 'rgba(0,0,0,0.12)'
+      ctx.strokeStyle = majorColor
       ctx.lineWidth = 0.03
       for (let x = 0; x <= vw; x += 5) {
         ctx.beginPath()
