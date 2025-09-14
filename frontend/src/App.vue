@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import PlanckSim from './components/PlanckSim.vue'
 import EnergyChart from './components/EnergyChart.vue'
 import EventStream from './components/EventStream.vue'
+import { log } from 'console'
 
 const query = ref('')
 const loading = ref(false)
@@ -10,6 +11,7 @@ const error = ref<string | null>(null)
 const scene = ref<any | null>(null)
 const thinking = ref(false)
 const isDark = ref(false)
+const assistantMsg = ref<string | null>(null)
 
 function delay(ms: number) { return new Promise<void>(resolve => setTimeout(resolve, ms)) }
 
@@ -17,6 +19,7 @@ async function runQuery() {
   error.value = null
   loading.value = true
   thinking.value = true
+  assistantMsg.value = null
 
   let nextScene: any | null = null
   let reqError: string | null = null
@@ -32,9 +35,14 @@ async function runQuery() {
       })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       const data = await res.json()
-      nextScene = data?.planck_scene || null
+      console.log('[assist] response JSON:', data)
+      // 提取模型回复文本（兼容不同字段名）
+      assistantMsg.value = data?.send_message || data?.message || null
+      // 兼容旧的 { planck_scene } 和新的 { compile_scene: { planck_scene } }
+      nextScene = data?.planck_scene || data?.compile_scene?.planck_scene || null
       if (!nextScene) reqError = 'No planck_scene in response'
     } catch (e: any) {
+      console.error('[assist] request error:', e)
       reqError = e?.message || 'Network error'
     }
   })()
@@ -111,6 +119,11 @@ const stats = computed(() => {
 
       <p v-if="error" class="err">{{ error }}</p>
 
+      <section v-if="assistantMsg" class="assistant">
+        <div class="assistant-title">模型回复</div>
+        <div class="assistant-body">{{ assistantMsg }}</div>
+      </section>
+
       <section class="viz">
         <h2>数据可视化</h2>
         <div class="charts">
@@ -166,4 +179,8 @@ const stats = computed(() => {
   .layout { grid-template-columns: 1fr; }
   .right-sim { position: static; }
 }
+
+.assistant { background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px; white-space: pre-wrap; }
+.assistant-title { font-size: 13px; margin-bottom: 6px; color: var(--color-heading); font-weight: 600; }
+.assistant-body { color: var(--vt-c-text-2); line-height: 1.5; }
 </style>
