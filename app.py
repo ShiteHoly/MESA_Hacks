@@ -18,7 +18,7 @@ for i in context_manager.function_desc_list:
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="AIzaSyANrcs-0RmCb3gdZEfTW8uocIWn7OGNPGU",
+    api_key="AIzaSyBfp6ltZJY5n8awibzocZ4H6rWGl5XI5h4",
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 
