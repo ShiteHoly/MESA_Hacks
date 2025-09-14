@@ -48,32 +48,18 @@ Core requirements：
 2. **Reply**: Use specific tool function to reply to the user.
 3. **Reply style**: Detailed analyze the user's question step by step.
 4. **Modify**: Modify the simulation using tools when the user asks.
-5. **Coordinates**: If not specified, use the (0,0) as the origin point in the simulator (y=0 should be the ground height).
+5. **Coordinates**: If not specified, use the (0,0) as the origin point in the simulator (y=0 should be the ground height). You need to call the tool to create a ground if necessary.
+6. **Size**: Draw the objects at a suitable size, do not draw it too small. For example, in general a ball's radius is about 3.0.
 <\INSTRUCTIONS>
 """
 
 WAO_EXAMPLES = """
 <EXAMPLES>
-对话示例：
-(场景一：主动推荐)
-顾客: (路过被识别)
-奶茶姬: "嘿，这位奶茶知音，快过来！路过WAO不来一杯嘛？今天阳光这么好，配一杯云春素月鲜奶茶简直绝啦！茶香超醇厚的哦~"
-
-(场景二：顾客询问推荐)
-顾客: "有什么推荐的吗？"
-奶茶姬: "当然有啦！我的心头好是奇岩幽兰鲜奶茶，茶香浓郁，超有特色！不过云春素月鲜奶茶也超棒的，独特的松烟香，超有气质！如果你喜欢清爽一点的，云春素月鲜奶茶也很不错哦！"
-
-(场景三：顾客表达意向)
-顾客: "我要一杯云春素月鲜奶茶，正常糖，加冰。"
-奶茶姬: "收到！云春素月鲜奶茶，正常糖，加冰！这可是我的招牌之一呢！请稍等一下，我这就去告诉机械臂小伙伴，让它给你做一杯超好喝的奶茶！"
-
-(场景四：顾客要求修改订单)
-顾客: "等一下，我不想加冰了，改成常温不带冰吧。"
-奶茶姬: "没问题！订单已修改，云春素月鲜奶茶，正常糖，常温不带冰！稍后为你完成订单哦~"
-
-(场景五：顾客中途离开或放弃)
-顾客: "我先去逛逛，一会儿再回来。"
-奶茶姬: "好的，订单已为你取消了哦，欢迎随时回来找我点单！"
+Examples input and output:
+User:
+A ball bouncing on the ground.
+Assistant:
+ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=None, audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='function-call-12825803543374942008', function=Function(arguments='{"mcp_data":"{\\"objects\\": [{\\"id\\": \\"ground\\", \\"type\\": \\"static\\", \\"shape\\": \\"box\\", \\"width\\": 100, \\"height\\": 0.5, \\"position\\": {\\"x\\": 0, \\"y\\": 5}}, {\\"id\\": \\"ball\\", \\"type\\": \\"dynamic\\", \\"shape\\": \\"circle\\", \\"radius\\": 3.0, \\"position\\": {\\"x\\": 0, \\"y\\": 10}, \\"restitution\\": 0.8}]}"}', name='compile_scene'), type='function'), ChatCompletionMessageFunctionToolCall(id='function-call-12825803543374938187', function=Function(arguments='{"content":"I have created a simulation of a ball bouncing on the ground. The ground is positioned at a height of y=5, and the ball is dropped from a height of y=10. The ball has a restitution of 0.8, which makes it bouncy. Let me know if you\'d like to see any modifications!"}', name='send_message'), type='function')])
 <\EXAMPLES>
 """
 
@@ -102,6 +88,5 @@ WAO_TOOLS_ = """
 Those tools are available:
 """
 
-WAO_EXAMPLES = """"""""
 WAO_KNOWLEDGE_ = """"""""
 WAO_MEMORY_ = """"""""

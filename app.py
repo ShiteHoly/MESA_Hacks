@@ -72,7 +72,8 @@ async def query(req: query_request):
         response_json[name] = result
         # context_manager.add_tool_result(result, tool_call.id)
 
-    context_manager.add_assistant_response(response.choices[0].message.content or "")
+    # context_manager.add_assistant_response(response.choices[0].message.content or "")
+    print(response_json)
     return response_json if response else {"error": "No response from LLM"}
 
 
