@@ -1,84 +1,84 @@
-"""AI-driven Math & Physics Visualization Assistant (Streamlit app)
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-This module is the top-level "orchestrator" that:
-1) Presents a Streamlit UI for natural-language input and visual outputs.
-2) Performs a simple keyword-based intent detection to route the request
-   to either the math plotter or the physics scene builder.
-3) Renders results as:
-   - A dynamic Planck.js simulation by injecting JSON into `simulation.html`.
-   - A static Matplotlib figure shown via `st.pyplot`.
-If neither a scene nor a figure is produced, a warning is displayed.
-"""
+from agent.context_manager.context_manager import ContextManager
+from agent.function_call.FunctionCallExecutor import FunctionCallExecutor
+from agent.function_call.FunctionRegistry import FunctionRegistry
+func_registry = FunctionRegistry()
+from physics_engine_in_class import PhysicsSceneCompiler
+psc = PhysicsSceneCompiler()
+func_registry.register(psc.compile_scene, "function", ["Visualize"], True)
+func_executor = FunctionCallExecutor(registry=func_registry)
+context_manager = ContextManager(_function_executor=func_executor)
 
-import streamlit as st
-from math_plotter import handle_math_plotting
+for i in context_manager.function_desc_list:
+    del i['function']["heartbeat"]
+    del i['function']['type']
+
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="AIzaSyANrcs-0RmCb3gdZEfTW8uocIWn7OGNPGU",
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)
+
 import json
-from physics_engine import handle_physics_simulation
+def execute_function_call(function_call):
+    """
+    执行函数调用，并返回结果字符串。
+    Args:
+        function_call (LuminiFunctionCall): 包含函数名称和参数的对象。
+    Returns:
+        str: 函数执行结果的字符串表示。
+    """
+    arguments, name = function_call.to_dict()['function'].values()
+    if name == "send_message":
+        return name, json.loads(arguments)['content']
+    elif name == "compile_scene":
+        args = json.loads(json.loads(arguments)['mcp_data'])
+        result = psc.compile_scene(args)
+        return name, result
 
-# Page title and short description for the app UI
-st.title("AI Assistant for Math and Physics")
-st.write("This is a simple math and physics assistant.")
+# --- FastAPI 应用设置 ---
+app = FastAPI(lifespan=None)
+from fastapi.middleware.cors import CORSMiddleware
+# 添加CORS中间件
+app.add_middleware(
+CORSMiddleware,
+allow_origins=["*"],
+allow_credentials=True,
+allow_methods=["*"],
+allow_headers=["*"],
+)
+class query_request(BaseModel):
+    query: str
 
-# Single-line natural-language input used to request either math plots or physics simulations
-user_input = st.text_input("Enter your math or physics expression:")
+@app.post("/api/query")
+async def query(req: query_request):
+    q = (req.query or "").strip()
+    if not q:
+        return {"error": "Empty query"}
+    context_manager.add_user_question(q)
+    response = client.chat.completions.create(
+        model="gemini-2.5-pro",
+        messages=context_manager.get_prompt_for_llm(),
+        tools=context_manager.function_desc_list,
+        tool_choice="required"
+    )
+    response_json = []
+    for tool_call in response.choices[0].message.tool_calls:
+        name, result = execute_function_call(tool_call)
+        response_json.append({name: result})
+        context_manager.add_tool_result(result, tool_call.id)
 
-if user_input:
-    # Intent detection module (V1.0: keyword-based)
-    # If any of these physics-related keywords are present, route to physics simulation.
-    physics_keywords = ["kinetic energy", "potential energy", "force", "acceleration",
-                        "velocity", "mass", "distance", "time", "free falling",
-                        "free fall", "projectile", "pulley"]  # includes 'pulley'
-    intent = "plot_function"
+    context_manager.add_assistant_response(response.choices[0].message.content or "")
+    return response_json if response else {"error": "No response from LLM"}
 
-    for keyword in physics_keywords:
-        if keyword in user_input.lower():
-            intent = "simulate_physics"
-            break  # As soon as one physics keyword is found, we can stop searching
+    
 
-    st.write(f"Detected intent: {intent}")
 
-    # Task dispatch: physics engine vs. math plotter
-    if intent == "simulate_physics":
-        st.info("Task has been assigned to the physics engine...")
-        data, error = handle_physics_simulation(user_input)
-    else:  # Default path: process as a math function plotting request
-        st.info("Task has been assigned to the math plotting engine...")
-        data, error = handle_math_plotting(user_input)
-
-    # Render results, if any
-    if data:
-        content_displayed = False
-
-        # If a dynamic Planck.js scene is present, inject it into the HTML template and embed
-        if isinstance(data, dict) and "planck_scene" in data:
-            st.success("Dynamic simulation scene:")
-            with open("simulation.html", "r", encoding="utf-8") as f:
-                html_template = f.read()
-
-            # Replace placeholder with JSON-serialized scene data
-            json_data = json.dumps(data["planck_scene"])
-            final_html = html_template.replace("%%SCENE_DATA%%", json_data)
-
-            # Show the interactive simulation in the Streamlit app
-            st.components.v1.html(final_html, height=620)
-            content_displayed = True
-
-        # If a Matplotlib figure is present, render it
-        fig_to_plot = None
-        if isinstance(data, dict) and "matplotlib_fig" in data:
-            st.success("Matplotlib figure:")
-            fig_to_plot = data["matplotlib_fig"]
-        elif not isinstance(data, dict):  # Back-compat: math_plotter may return just a Figure
-            fig_to_plot = data
-
-        if fig_to_plot:
-            st.pyplot(fig_to_plot)
-            content_displayed = True
-
-        # If we received data but nothing was renderable, show a friendly message
-        if not content_displayed:
-            st.warning("Processing is over but No content to display.")
-
-    elif error:
-        # Show any error messages returned by the backends
-        st.error(error)
+# 运行：uvicorn main:app --host
+# ===========================
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -147,31 +147,7 @@ class PhysicsSceneCompiler:
         Planck.js-supported physics properties directly.
 
         Args:
-            mcp_data (Dict[str, Any]):
-                A dictionary following the MCP format. Each object dictionary in its
-                `objects` list, in addition to the mandatory `id`, `type`, `shape`,
-                and `position`, can also contain any of the following optional
-                properties that conform to the Planck.js BodyDef and FixtureDef:
-
-                --- Body (kinematic) properties ---
-                - `angle` (float, optional): Initial angle (in degrees).
-                - `linearVelocity` (Dict, optional): Initial linear velocity, e.g., `{'x': 5, 'y': -2}`.
-                - `angularVelocity` (float, optional): Initial angular velocity (in radians/sec).
-                - `linearDamping` (float, optional): Linear damping.
-                - `angularDamping` (float, optional): Angular damping.
-                - `fixedRotation` (bool, optional): Whether to fix the rotation.
-                - `bullet` (bool, optional): Whether it's a high-speed "bullet" type (to prevent tunneling).
-                - `gravityScale` (float, optional): Gravity scale factor, for effects like anti-gravity.
-
-                --- Fixture (material/collision) properties ---
-                - `mass` (float, optional): Mass (used for automatic density calculation).
-                - `density` (float, optional): Density (if provided, this takes precedence over mass).
-                - `friction` (float, optional): Coefficient of friction.
-                - `restitution` (float, optional): Coefficient of restitution (bounciness).
-                - `isSensor` (bool, optional): Whether it's a sensor (detects collisions but has no physical response).
-                - `filterGroupIndex` (int, optional): Collision filter group.
-                - `filterCategoryBits` (int, optional): Collision category.
-                - `filterMaskBits` (int, optional): Collision mask.
+            mcp_data (Dict[str, Any]): A dictionary following the MCP format. Each object dictionary in its objects list, in addition to the mandatory id, type, shape, and position, can also contain any of the following optional properties that conform to the Planck.js BodyDef and FixtureDef: --- Body (kinematic) properties --- - angle (float, optional): Initial angle (in degrees). - linearVelocity (Dict, optional): Initial linear velocity, e.g., {'x': 5, 'y': -2}. - angularVelocity (float, optional): Initial angular velocity (in radians/sec). - linearDamping (float, optional): Linear damping. - angularDamping (float, optional): Angular damping. - fixedRotation (bool, optional): Whether to fix the rotation. - bullet (bool, optional): Whether it's a high-speed "bullet" type (to prevent tunneling). - gravityScale (float, optional): Gravity scale factor, for effects like anti-gravity. --- Fixture (material/collision) properties --- - mass (float, optional): Mass (used for automatic density calculation). - density (float, optional): Density (if provided, this takes precedence over mass). - friction (float, optional): Coefficient of friction. - restitution (float, optional): Coefficient of restitution (bounciness). - isSensor (bool, optional): Whether it's a sensor (detects collisions but has no physical response). - filterGroupIndex (int, optional): Collision filter group. - filterCategoryBits (int, optional): Collision category. - filterMaskBits (int, optional): Collision mask
 
         Returns:
             Tuple[Optional[Dict[str, Any]], Optional[str]]:

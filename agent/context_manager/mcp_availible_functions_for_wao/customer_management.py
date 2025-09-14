@@ -1,7 +1,7 @@
 # customer_management.py
 
 # --- MCP 工具函数 ---
-def send_message(content: str) -> dict:
+def send_message(content: str) -> str:
     """Show a message to the user, it is also the only way to let the user see your text response
 
     当大模型需要对用户说话时，必须调用此函数。此函数会终止与大模型的交互，
@@ -16,7 +16,7 @@ def send_message(content: str) -> dict:
     print(f"[CUSTOMER_MGMT] 发送消息: {content}")
     # this function in-fact is a mockup, by identifying it's called by MCP, llm_module itself sent the message.
     # ...
-    return {"status": "success", "message": content}
+    return content
 
 
 # --- 测试部分 ---

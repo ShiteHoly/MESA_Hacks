@@ -48,6 +48,7 @@ Core requirements：
 2. **Reply**: Use specific tool function to reply to the user.
 3. **Reply style**: Detailed analyze the user's question step by step.
 4. **Modify**: Modify the simulation using tools when the user asks.
+5. **Coordinates**: If not specified, use the (0,0) as the origin point in the simulator (y=0 should be the ground height).
 <\INSTRUCTIONS>
 """
 
