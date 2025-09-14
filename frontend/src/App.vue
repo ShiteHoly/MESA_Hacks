@@ -8,26 +8,47 @@ const query = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const scene = ref<any | null>(null)
+const thinking = ref(false)
+
+function delay(ms: number) { return new Promise<void>(resolve => setTimeout(resolve, ms)) }
 
 async function runQuery() {
   error.value = null
   loading.value = true
-  try {
-    console.log(query.value);
-    const res = await fetch('/api/assist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query.value })
-      
-    })
-    const data = await res.json()
-    scene.value = data.planck_scene || null
-    if (!scene.value) error.value = 'No planck_scene in response'
-  } catch (e: any) {
-    error.value = e?.message || 'Network error'
-  } finally {
-    loading.value = false
+  thinking.value = true
+
+  let nextScene: any | null = null
+  let reqError: string | null = null
+
+  const minHold = delay(2000) // 至少展示 2 秒思考动画
+
+  const req = (async () => {
+    try {
+      const res = await fetch('/api/assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.value })
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
+      nextScene = data?.planck_scene || null
+      if (!nextScene) reqError = 'No planck_scene in response'
+    } catch (e: any) {
+      reqError = e?.message || 'Network error'
+    }
+  })()
+
+  await Promise.all([minHold, req])
+
+  if (reqError) {
+    error.value = reqError
+    scene.value = null
+  } else {
+    scene.value = nextScene
   }
+
+  thinking.value = false
+  loading.value = false
 }
 
 // 基于当前场景计算一些可视化统计
@@ -52,6 +73,13 @@ const stats = computed(() => {
 
 <template>
   <main class="layout">
+    <div v-if="thinking" class="thinking-overlay">
+      <div class="thinking-card">
+        <div class="spinner"></div>
+        <div class="msg">正在思考…</div>
+        <div class="sub">为保证体验将展示至少 2 秒</div>
+      </div>
+    </div>
     <section class="left-pane">
       <div class="toolbar">
         <input v-model="query" class="prompt" type="text" placeholder="输入你的请求..." />
@@ -86,6 +114,12 @@ const stats = computed(() => {
 
 <style scoped>
 .layout { display: grid; gap: 16px; grid-template-columns: 1fr 800px; align-items: start; padding: 16px 32px 16px 24px; }
+.thinking-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.25); display: grid; place-items: center; z-index: 999; }
+.thinking-card { background: var(--color-background); color: var(--color-heading); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); display: flex; gap: 12px; align-items: center; }
+.thinking-card .msg { font-weight: 600; }
+.thinking-card .sub { font-size: 12px; color: var(--vt-c-text-light-2); }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--color-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .left-pane { display: flex; flex-direction: column; gap: 12px; }
 .toolbar { display: flex; gap: 8px; }
 .prompt { width: 520px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; }
