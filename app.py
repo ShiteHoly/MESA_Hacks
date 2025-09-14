@@ -74,6 +74,56 @@ async def query(req: query_request):
     context_manager.add_assistant_response(response.choices[0].message.content or "")
     return response_json if response else {"error": "No response from LLM"}
 
+
+# 兼容前端的 /api/assist 接口：返回 { "planck_scene": {...} }
+class AssistRequest(BaseModel):
+    query: str
+
+@app.post("/api/assist")
+async def assist(req: AssistRequest):
+    q = (req.query or "").strip()
+    if not q:
+        return {"error": "Empty query"}
+
+    # 将用户问题写入上下文
+    context_manager.add_user_question(q)
+
+    # 让 LLM 必须使用工具
+    response = client.chat.completions.create(
+        model="gemini-2.5-pro",
+        messages=context_manager.get_prompt_for_llm(),
+        tools=context_manager.function_desc_list,
+        tool_choice="required"
+    )
+
+    planck_scene = None
+    raw_results = []
+
+    # 执行所有工具调用，并尝试抓取 compile_scene 的结果
+    for tool_call in response.choices[0].message.tool_calls:
+        name, result = execute_function_call(tool_call)
+        raw_results.append({name: result})
+        context_manager.add_tool_result(str(result), tool_call.id)
+
+        if name == "compile_scene":
+            try:
+                scene_obj, err = result  # 由 PhysicsSceneCompiler.compile_scene 返回 (dict_or_none, err_or_none)
+                if err is None and isinstance(scene_obj, dict):
+                    # 既支持直接返回 planck_scene，也支持包在 {"planck_scene": {...}} 的形式
+                    planck_scene = scene_obj.get("planck_scene") or scene_obj
+            except Exception:
+                # 忽略解析错误，继续尝试其它 tool_calls
+                pass
+
+    # 把助手回复也写入上下文（即使内容为空）
+    context_manager.add_assistant_response(response.choices[0].message.content or "")
+
+    if planck_scene is not None:
+        return {"planck_scene": planck_scene}
+    else:
+        # 兜底：便于排错
+        return {"error": "No planck_scene in tool results", "raw": raw_results}
+
     
 
 
@@ -81,4 +131,5 @@ async def query(req: query_request):
 # ===========================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # 建议与 Vite 代理保持一致（vite.config.ts -> 127.0.0.1:5001）
+    uvicorn.run(app, host="127.0.0.1", port=5001)
