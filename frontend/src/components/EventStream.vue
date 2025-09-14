@@ -4,23 +4,41 @@ import { eventSeries } from '@/telemetry'
 
 let chart: any = null
 let el: HTMLDivElement | null = null
+let mo: MutationObserver | null = null
+
+function cssVar(name: string, fallback = ''): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name)
+  return v?.trim() || fallback
+}
 
 function init() {
   const ec = (window as any).echarts
   if (!ec || !el) return
   chart = ec.init(el)
   chart.setOption({
+    backgroundColor: 'transparent',
+    textStyle: { color: cssVar('--chart-text', '#333') },
     tooltip: { trigger: 'axis' },
     grid: { left: 40, right: 12, top: 10, bottom: 25 },
-    xAxis: { type: 'category', data: [] },
-    yAxis: { type: 'value', name: 'Impulse', scale: true },
+    xAxis: {
+      type: 'category', data: [],
+      axisLabel: { color: cssVar('--chart-text', '#333') },
+      axisLine: { lineStyle: { color: cssVar('--chart-axis', '#aaa') } },
+      splitLine: { show: true, lineStyle: { color: cssVar('--chart-grid', '#eee') } },
+    },
+    yAxis: {
+      type: 'value', name: 'Impulse', scale: true,
+      axisLabel: { color: cssVar('--chart-text', '#333') },
+      axisLine: { lineStyle: { color: cssVar('--chart-axis', '#aaa') } },
+      splitLine: { show: true, lineStyle: { color: cssVar('--chart-grid', '#eee') } },
+    },
     series: [
       {
-        name: '碰撞冲量',
+        name: 'Collision Impulse',
         type: 'bar',
         data: [],
         barWidth: 3,
-        itemStyle: { color: '#ff7f50' },
+        itemStyle: { color: cssVar('--accent-3', '#ff7f50') },
       },
     ],
   })
@@ -38,23 +56,46 @@ onMounted(() => {
   el = document.getElementById('event-stream') as HTMLDivElement
   init()
   update()
+  // observe theme changes
+  mo = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+        if (chart) {
+          chart.setOption({
+            textStyle: { color: cssVar('--chart-text', '#333') },
+            xAxis: {
+              axisLabel: { color: cssVar('--chart-text', '#333') },
+              axisLine: { lineStyle: { color: cssVar('--chart-axis', '#aaa') } },
+              splitLine: { show: true, lineStyle: { color: cssVar('--chart-grid', '#eee') } },
+            },
+            yAxis: {
+              axisLabel: { color: cssVar('--chart-text', '#333') },
+              axisLine: { lineStyle: { color: cssVar('--chart-axis', '#aaa') } },
+              splitLine: { show: true, lineStyle: { color: cssVar('--chart-grid', '#eee') } },
+            },
+            series: [{ itemStyle: { color: cssVar('--accent-3', '#ff7f50') } }],
+          })
+        }
+      }
+    }
+  })
+  mo.observe(document.documentElement, { attributes: true })
 })
 
-onBeforeUnmount(() => { if (chart) chart.dispose() })
+onBeforeUnmount(() => { if (chart) chart.dispose(); if (mo) { try { mo.disconnect() } catch {} mo = null } })
 
 watch(eventSeries, () => update(), { deep: true })
 </script>
 
 <template>
   <div class="panel">
-    <div class="panel-title">碰撞事件流（冲量）</div>
+    <div class="panel-title">Collision Events (Impulse)</div>
     <div id="event-stream" class="chart"></div>
   </div>
 </template>
 
 <style scoped>
-.panel { background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px; }
+.panel { background: var(--surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px; overflow: hidden; }
 .panel-title { font-size: 14px; margin-bottom: 6px; color: var(--color-heading); }
-.chart { width: 100%; height: 160px; }
+.chart { width: 100%; max-width: 100%; height: 160px; }
 </style>
-

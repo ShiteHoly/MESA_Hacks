@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import PlanckSim from './components/PlanckSim.vue'
 import EnergyChart from './components/EnergyChart.vue'
 import EventStream from './components/EventStream.vue'
-import { log } from 'console'
 
 const query = ref('')
 const loading = ref(false)
@@ -106,38 +105,37 @@ const stats = computed(() => {
     <div v-if="thinking" class="thinking-overlay">
       <div class="thinking-card">
         <div class="spinner"></div>
-        <div class="msg">正在思考…</div>
-        <div class="sub">为保证体验将展示至少 2 秒</div>
+        <div class="msg">Thinking…</div>
       </div>
     </div>
     <section class="left-pane">
       <div class="toolbar">
-        <input v-model="query" class="prompt" type="text" placeholder="输入你的请求..." />
-        <button class="run" :disabled="loading" @click="runQuery">{{ loading ? '运行中...' : '运行' }}</button>
-        <button class="theme" @click="toggleTheme">{{ isDark ? '☀️ 亮色' : '🌙 深色' }}</button>
+        <input v-model="query" class="prompt" type="text" placeholder="Enter your request..." />
+        <button class="run" :disabled="loading" @click="runQuery">{{ loading ? 'Running...' : 'Run' }}</button>
+        <button class="theme" @click="toggleTheme">{{ isDark ? '☀️ Light' : '🌙 Dark' }}</button>
       </div>
 
       <p v-if="error" class="err">{{ error }}</p>
 
       <section v-if="assistantMsg" class="assistant">
-        <div class="assistant-title">模型回复</div>
+        <div class="assistant-title">Assistant Reply</div>
         <div class="assistant-body">{{ assistantMsg }}</div>
       </section>
 
       <section class="viz">
-        <h2>数据可视化</h2>
+        <h2>Visualization</h2>
         <div class="charts">
           <EnergyChart />
           <EventStream />
         </div>
         <div v-if="stats" class="stats">
-          <div class="card"><div class="label">对象总数</div><div class="value">{{ stats.total }}</div></div>
-          <div class="card"><div class="label">动态体</div><div class="value">{{ stats.dynamicCount }}</div></div>
-          <div class="card"><div class="label">静态体</div><div class="value">{{ stats.staticCount }}</div></div>
-          <div class="card"><div class="label">圆形</div><div class="value">{{ stats.circles }}</div></div>
-          <div class="card"><div class="label">矩形</div><div class="value">{{ stats.boxes }}</div></div>
-          <div class="card"><div class="label">平均初速度</div><div class="value">{{ stats.avgSpeed.toFixed(2) }}</div></div>
-          <div class="card span-2"><div class="label">重力</div><div class="value">({{ stats.gravity.x.toFixed(2) }}, {{ stats.gravity.y.toFixed(2) }})</div></div>
+          <div class="card"><div class="label">Objects</div><div class="value">{{ stats.total }}</div></div>
+          <div class="card"><div class="label">Dynamic Bodies</div><div class="value">{{ stats.dynamicCount }}</div></div>
+          <div class="card"><div class="label">Static Bodies</div><div class="value">{{ stats.staticCount }}</div></div>
+          <div class="card"><div class="label">Circles</div><div class="value">{{ stats.circles }}</div></div>
+          <div class="card"><div class="label">Boxes</div><div class="value">{{ stats.boxes }}</div></div>
+          <div class="card"><div class="label">Average Speed</div><div class="value">{{ stats.avgSpeed.toFixed(2) }}</div></div>
+          <div class="card span-2"><div class="label">Gravity</div><div class="value">({{ stats.gravity.x.toFixed(2) }}, {{ stats.gravity.y.toFixed(2) }})</div></div>
         </div>
       </section>
     </section>
@@ -149,38 +147,39 @@ const stats = computed(() => {
 </template>
 
 <style scoped>
-.layout { display: grid; gap: 16px; grid-template-columns: 1fr 800px; align-items: start; padding: 16px 32px 16px 24px; }
+.layout { display: grid; gap: 16px; grid-template-columns: minmax(420px, 560px) 800px; align-items: start; justify-content: center; padding: 20px 24px 16px; }
 .thinking-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.25); display: grid; place-items: center; z-index: 999; }
 .thinking-card { background: var(--color-background); color: var(--color-heading); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); display: flex; gap: 12px; align-items: center; }
 .thinking-card .msg { font-weight: 600; }
-.thinking-card .sub { font-size: 12px; color: var(--vt-c-text-light-2); }
+.thinking-card .sub { font-size: 12px; color: var(--text-secondary); }
 .spinner { width: 18px; height: 18px; border: 2px solid var(--color-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .left-pane { display: flex; flex-direction: column; gap: 12px; }
 .toolbar { display: flex; gap: 8px; }
-.prompt { width: 520px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; }
+.prompt { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); background: var(--surface-1); color: var(--text-primary); border-radius: var(--radius-sm); font-size: 14px; }
+.prompt::placeholder { color: var(--text-secondary); }
 .run { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
 .run:disabled { opacity: 0.6; cursor: not-allowed; }
-.theme { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-heading); cursor: pointer; }
+.theme { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--surface-1); color: var(--color-heading); cursor: pointer; }
 .err { color: var(--error); margin: 0 0 12px; }
 
-.viz { background: var(--color-background-soft); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px; }
+.viz { background: var(--surface-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px; }
 .viz h2 { font-size: 16px; margin-bottom: 10px; }
 .charts { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 10px; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.card { background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px; }
-.card .label { color: var(--vt-c-text-light-2); font-size: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px; }
+.card .label { color: var(--text-secondary); font-size: 12px; }
 .card .value { font-size: 20px; font-weight: 600; margin-top: 4px; }
 .card.span-2 { grid-column: span 2; }
 
-.right-sim { position: sticky; top: 16px; margin-right: 8px; }
+.right-sim { position: sticky; top: 20px; margin-right: 0; }
 
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 1fr; }
   .right-sim { position: static; }
 }
 
-.assistant { background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px; white-space: pre-wrap; }
+.assistant { background: var(--surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px; white-space: pre-wrap; }
 .assistant-title { font-size: 13px; margin-bottom: 6px; color: var(--color-heading); font-weight: 600; }
-.assistant-body { color: var(--vt-c-text-2); line-height: 1.5; }
+.assistant-body { color: var(--text-secondary); line-height: 1.5; }
 </style>

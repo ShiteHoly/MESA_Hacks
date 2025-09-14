@@ -33,10 +33,21 @@
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
 
+  /* Layered surfaces for depth */
+  --surface-1: var(--vt-c-white);
+  --surface-2: var(--vt-c-white-soft);
+  --surface-3: var(--vt-c-white-mute);
+
+  /* Text scales */
+  --text-primary: var(--vt-c-text-light-1);
+  --text-secondary: var(--vt-c-text-light-2);
+
   --section-gap: 160px;
 
   /* App theme variables */
   --accent: #2d6cdf;
+  --accent-2: #34c38f; /* teal/green */
+  --accent-3: #ff7f50; /* coral */
   --success: #0b7;
   --error: #cc0000;
   --panel-bg: rgba(0, 0, 0, 0.5);
@@ -46,6 +57,14 @@
   /* Grid colors for canvas */
   --grid-minor: rgba(0, 0, 0, 0.06);
   --grid-major: rgba(0, 0, 0, 0.12);
+
+  /* Chart tokens */
+  --chart-text: var(--color-heading);
+  --chart-axis: var(--color-border);
+  --chart-grid: rgba(0, 0, 0, 0.08);
+
+  /* Simulation canvas background */
+  --sim-bg: #d3e6ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,10 +79,23 @@
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
 
+    --surface-1: var(--vt-c-black-soft);
+    --surface-2: var(--vt-c-black-mute);
+    --surface-3: #101010;
+
+    --text-primary: var(--vt-c-text-dark-1);
+    --text-secondary: var(--vt-c-text-dark-2);
+
     /* Dark theme tweaks */
     --panel-bg: rgba(0, 0, 0, 0.55);
     --grid-minor: rgba(255, 255, 255, 0.10);
     --grid-major: rgba(255, 255, 255, 0.20);
+
+    --chart-text: var(--vt-c-text-dark-1);
+    --chart-axis: rgba(255, 255, 255, 0.35);
+    --chart-grid: rgba(255, 255, 255, 0.12);
+
+    --sim-bg: #0f2748; /* deep blue for dark mode */
   }
 }
 
@@ -82,6 +114,19 @@
   --panel-bg: rgba(0, 0, 0, 0.55);
   --grid-minor: rgba(255, 255, 255, 0.10);
   --grid-major: rgba(255, 255, 255, 0.20);
+
+  --surface-1: var(--vt-c-black-soft);
+  --surface-2: var(--vt-c-black-mute);
+  --surface-3: #101010;
+
+  --text-primary: var(--vt-c-text-dark-1);
+  --text-secondary: var(--vt-c-text-dark-2);
+
+  --chart-text: var(--vt-c-text-dark-1);
+  --chart-axis: rgba(255, 255, 255, 0.35);
+  --chart-grid: rgba(255, 255, 255, 0.12);
+
+  --sim-bg: #0f2748; /* deep blue for dark mode */
 }
 
 *,

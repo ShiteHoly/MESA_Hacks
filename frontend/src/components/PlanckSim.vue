@@ -183,7 +183,8 @@ function setupSimulation(sceneData: any) {
         const anchorB = pulley.getAnchorB()
 
         ctx.beginPath()
-        ctx.strokeStyle = '#333'
+        const cs = getComputedStyle(document.documentElement)
+        ctx.strokeStyle = (cs.getPropertyValue('--chart-axis').trim() || '#333')
         ctx.lineWidth = 0.15
         ctx.moveTo(groundA.x, groundA.y)
         ctx.lineTo(anchorA.x, anchorA.y)
@@ -418,38 +419,38 @@ watch(speed, () => { /* 速度直接在 step 中读取，无需额外操作 */ }
   <div class="sim-container" ref="containerRef">
     <div ref="infoRef" class="info-panel" />
     <div class="controls">
-      <button class="btn" @click="paused = !paused">{{ paused ? '继续' : '暂停' }}</button>
+      <button class="btn" @click="paused = !paused">{{ paused ? 'Resume' : 'Pause' }}</button>
       <div class="spacer"></div>
       <button class="btn" :class="{ active: speed === 0.5 }" @click="speed = 0.5">0.5x</button>
       <button class="btn" :class="{ active: speed === 1 }" @click="speed = 1">1x</button>
       <button class="btn" :class="{ active: speed === 2 }" @click="speed = 2">2x</button>
       <div class="spacer"></div>
-      <button class="btn primary" @click="resetSimulation">重播</button>
+      <button class="btn primary" @click="resetSimulation">Replay</button>
     </div>
     <div ref="paramsRef" class="params-panel" />
     <canvas ref="canvasRef" class="sim-canvas" />
   </div>
   <div class="tune-bar">
     <div class="row">
-      <label>重力 |g|</label>
+      <label>Gravity |g|</label>
       <input class="num" type="number" step="0.1" min="0" max="20" v-model.number="gravityAbs" />
     </div>
     <div class="row">
-      <label>阻尼</label>
+      <label>Damping</label>
       <input class="num" type="number" step="0.1" min="0" max="5" v-model.number="linearDamping" />
     </div>
     <div class="row">
-      <label>摩擦</label>
+      <label>Friction</label>
       <input type="range" min="0" max="1" step="0.05" v-model.number="globalFriction" />
       <span class="val">{{ globalFriction.toFixed(2) }}</span>
     </div>
     <div class="row">
-      <label>弹性</label>
+      <label>Restitution</label>
       <input type="range" min="0" max="1" step="0.05" v-model.number="globalRestitution" />
       <span class="val">{{ globalRestitution.toFixed(2) }}</span>
     </div>
     <div class="row inline">
-      <label><input type="checkbox" v-model="showGrid" /> 显示网格</label>
+      <label><input type="checkbox" v-model="showGrid" /> Show Grid</label>
     </div>
   </div>
   
@@ -460,7 +461,7 @@ watch(speed, () => { /* 速度直接在 step 中读取，无需额外操作 */ }
   position: relative;
   width: 800px; /* 右列宽度固定为 800px；内部画布自适应该宽度上限 */
   height: 600px; /* 初始高度；实际以 4:3 比例由视图高度控制 */
-  background: #d3e6ff;
+  background: var(--sim-bg);
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
@@ -545,5 +546,5 @@ watch(speed, () => { /* 速度直接在 step 中读取，无需额外操作 */ }
 .tune-bar .num { width: 80px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background-soft); color: var(--color-heading); }
 .tune-bar select { padding: 4px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background-soft); color: var(--color-heading); }
 .tune-bar input[type=\"range\"] { flex: 1; }
-.tune-bar .val { font-size: 12px; color: var(--vt-c-text-light-2); width: 40px; text-align: right; }
+.tune-bar .val { font-size: 12px; color: var(--color-heading); font-weight: 600; width: 48px; text-align: right; }
 </style>
