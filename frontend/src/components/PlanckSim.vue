@@ -70,7 +70,7 @@ function remapSceneX(sceneData: any, dx: number) {
   return s
 }
 
-function setupSimulation(sceneData: any) {
+function setupSimulation(sceneData: any, alreadyMapped = false) {
   const pl: any = (window as any).planck ?? (globalThis as any).planck
   if (!pl) {
     console.error('Planck.js not found on window. Make sure CDN is loaded.')
@@ -88,7 +88,9 @@ function setupSimulation(sceneData: any) {
 
   // stop any previous loop before rebuilding
   stopLoop()
-  const mapped = remapSceneX(sceneData, X_OFFSET)
+  const mapped = alreadyMapped
+    ? JSON.parse(JSON.stringify(sceneData || {}))
+    : remapSceneX(sceneData, X_OFFSET)
   world = new pl.World(pl.Vec2(mapped.world.gravity.x, mapped.world.gravity.y))
   mainTrackedBody = null
   elapsedTime = 0
@@ -375,9 +377,7 @@ function resetSimulation() {
   for (let b = world.getBodyList(); b; b = b.getNext()) {
     world.destroyBody(b)
   }
-  if (currentScene) {
-    setupSimulation(currentScene)
-  }
+  if (currentScene) setupSimulation(currentScene, true)
 }
 
 function applyTuning() {
@@ -415,9 +415,7 @@ function applyResize() {
 onMounted(() => {
   applyResize()
   window.addEventListener('resize', applyResize)
-  if (props.sceneData) {
-    setupSimulation(props.sceneData)
-  }
+  if (props.sceneData) setupSimulation(props.sceneData, false)
 })
 
 onBeforeUnmount(() => {
@@ -428,7 +426,7 @@ onBeforeUnmount(() => {
 watch(
   () => props.sceneData,
   (val) => {
-    if (val) setupSimulation(val)
+    if (val) setupSimulation(val, false)
   }
 )
 
