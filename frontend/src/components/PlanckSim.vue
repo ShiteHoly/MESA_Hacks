@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { recordEnergy, recordEvent, resetTelemetry } from '@/telemetry'
 
 type Vec2 = { x: number; y: number }
 
@@ -17,6 +18,7 @@ let elapsedTime = 0
 const timeStep = 1 / 60
 let netForce: Vec2 = { x: 0, y: 0 }
 let previousVelocity: any = null
+let sampleAccum = 0 // 控制采样频率（用于图表）
 
 const width = 800
 const height = 600
@@ -48,8 +50,13 @@ function setupSimulation(sceneData: any) {
   }
 
   const canvas = canvasRef.value!
-  canvas.width = width
-  canvas.height = height
+  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1))
+  // CSS 尺寸
+  canvas.style.width = width + 'px'
+  canvas.style.height = height + 'px'
+  // 物理像素尺寸（高清）
+  canvas.width = Math.floor(width * dpr)
+  canvas.height = Math.floor(height * dpr)
   const ctx = canvas.getContext('2d')!
 
   // stop any previous loop before rebuilding
@@ -60,6 +67,7 @@ function setupSimulation(sceneData: any) {
   netForce = { x: 0, y: 0 }
   previousVelocity = pl.Vec2(0, 0)
   currentScene = sceneData
+  resetTelemetry()
 
   const bodyMap: Record<string, any> = {}
 
@@ -124,6 +132,15 @@ function setupSimulation(sceneData: any) {
     }
   })
 
+  // 监听碰撞（post-solve 拿到冲量更直观）
+  world.on('post-solve', (contact: any, impulse: any) => {
+    try {
+      // normalImpulses 是数组；这里取首个作为代表
+      const imp = Array.isArray(impulse?.normalImpulses) ? impulse.normalImpulses[0] : 0
+      if (imp && imp > 0) recordEvent({ t: elapsedTime, impulse: imp })
+    } catch {}
+  })
+
   function drawVector(startPos: any, vector: any, color: string, scale = 1.0) {
     ctx.beginPath()
     ctx.strokeStyle = color
@@ -161,12 +178,53 @@ function setupSimulation(sceneData: any) {
   }
 
   function render() {
-    ctx.clearRect(0, 0, width, height)
+    // 复位矩阵并按物理像素清屏
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
+    // DPR 缩放到 CSS 像素，再进入世界坐标
+    const dprLocal = Math.max(1, Math.floor(window.devicePixelRatio || 1))
+    ctx.scale(dprLocal, dprLocal)
     ctx.scale(worldScale, worldScale)
     const viewboxMaxY = height / worldScale
     ctx.translate(0, viewboxMaxY)
     ctx.scale(1, -1)
+
+    // 背景网格（世界坐标）
+    const vw = width / worldScale
+    const vh = height / worldScale
+    ctx.save()
+    ctx.lineWidth = 0.02
+    // 次级网格 1m
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)'
+    for (let x = 0; x <= vw; x += 1) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, vh)
+      ctx.stroke()
+    }
+    for (let y = 0; y <= vh; y += 1) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(vw, y)
+      ctx.stroke()
+    }
+    // 主网格 5m
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'
+    ctx.lineWidth = 0.03
+    for (let x = 0; x <= vw; x += 5) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, vh)
+      ctx.stroke()
+    }
+    for (let y = 0; y <= vh; y += 5) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(vw, y)
+      ctx.stroke()
+    }
+    ctx.restore()
 
     // Bodies
     for (let body = world.getBodyList(); body; body = body.getNext()) {
@@ -222,6 +280,7 @@ function setupSimulation(sceneData: any) {
   function step() {
     world.step(timeStep)
     elapsedTime += timeStep
+    sampleAccum += timeStep
     if (mainTrackedBody) {
       const currentVelocity = mainTrackedBody.getLinearVelocity()
       const speed = Math.sqrt(currentVelocity.x ** 2 + currentVelocity.y ** 2)
@@ -245,6 +304,17 @@ function setupSimulation(sceneData: any) {
       }
 
       previousVelocity = currentVelocity.clone()
+
+      // 20Hz 采样能量，降低图表数据量
+      if (sampleAccum >= 1 / 20) {
+        sampleAccum = 0
+        const pos = mainTrackedBody.getPosition()
+        const g = Math.abs(world.getGravity().y)
+        const K = 0.5 * mass * speed * speed
+        const U = mass * g * pos.y
+        const E = K + U
+        recordEnergy({ t: elapsedTime, y: pos.y, speed, mass, K, U, E })
+      }
     }
     render()
     rafId = requestAnimationFrame(step)
@@ -296,6 +366,9 @@ watch(
   width: 800px;
   height: 600px;
   background: #d3e6ff;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 .sim-canvas {
   width: 800px;
@@ -307,10 +380,10 @@ watch(
   top: 10px;
   right: 10px;
   padding: 10px;
-  background-color: rgba(0,0,0,0.5);
-  color: white;
+  background-color: var(--panel-bg);
+  color: var(--panel-text);
   font-family: monospace;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
 }
 .reset-button {
@@ -320,16 +393,20 @@ watch(
   padding: 8px 12px;
   font-size: 14px;
   cursor: pointer;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
 }
 .params-panel {
   position: absolute;
   top: 50px;
   left: 10px;
   padding: 10px;
-  background-color: rgba(0,0,0,0.5);
-  color: white;
+  background-color: var(--panel-bg);
+  color: var(--panel-text);
   font-family: monospace;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
 }
 </style>

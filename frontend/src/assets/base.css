@@ -34,6 +34,15 @@
   --color-text: var(--vt-c-text-light-1);
 
   --section-gap: 160px;
+
+  /* App theme variables */
+  --accent: #2d6cdf;
+  --success: #0b7;
+  --error: #cc0000;
+  --panel-bg: rgba(0, 0, 0, 0.5);
+  --panel-text: #ffffff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +56,9 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+
+    /* Dark theme tweaks */
+    --panel-bg: rgba(0, 0, 0, 0.55);
   }
 }
 

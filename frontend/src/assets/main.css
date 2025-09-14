@@ -1,9 +1,10 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   font-weight: normal;
 }
 
@@ -21,15 +22,13 @@ a,
   }
 }
 
+/* 移除模板默认的大屏双列与 body 居中，避免干扰应用自定义布局 */
 @media (min-width: 1024px) {
   body {
-    display: flex;
-    place-items: center;
+    display: block;
   }
-
   #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
+    display: block;
+    padding: 0; /* 留白交由页面自身布局控制 */
   }
 }
